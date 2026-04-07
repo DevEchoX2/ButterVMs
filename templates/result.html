@@ -53,14 +53,14 @@
         </div>
         {% endif %}
 
-        {% if web_url %}
+        {% if vm_link %}
         <div class="btc-box">
           <h3>Browser VM Session</h3>
           <p>{{ launch_message }}</p>
           <p>Expires at: {{ expires_at }}</p>
           <p style="margin-top: 1rem;">
-            <a class="vnc-link" href="{{ session_link }}">→ Open Session Dashboard</a>
-            <a class="vnc-link" href="{{ session_link }}">→ Manage Session</a>
+            <a class="vnc-link" href="{{ vm_link }}">→ Open Browser VM</a>
+            <a class="vnc-link" href="{{ dashboard_link }}">→ Manage Session</a>
           </p>
         </div>
         {% endif %}

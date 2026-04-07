@@ -10,21 +10,33 @@ from uuid import uuid4
 
 import docker
 from docker.errors import DockerException, NotFound
+from itsdangerous import BadSignature, URLSafeSerializer
 from flask import Flask, jsonify, redirect, render_template, request, session as flask_session, url_for
 
 app = Flask(__name__)
 app.secret_key = os.getenv("BUTTERVMS_SECRET_KEY", "buttervms-dev-secret")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("BUTTERVMS_SESSION_SECURE", "0") == "1"
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Your BTC payout wallet address
 BTC_WALLET_ADDRESS = "bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0"
 DB_PATH = os.getenv("BUTTERVMS_DB_PATH", "buttervms.db")
-VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "jlesage/firefox:latest")
-DEMO_BROWSER_URL = os.getenv("BUTTERVMS_DEMO_BROWSER_URL", "http://127.0.0.1:6080")
+VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "dorowu/ubuntu-desktop-lxde-vnc:latest")
 CONTAINER_PREFIX = os.getenv("BUTTERVMS_CONTAINER_PREFIX", "buttervms-session")
 SESSION_SWEEPER_SECONDS = int(os.getenv("BUTTERVMS_SWEEPER_SECONDS", "30"))
 ADMIN_PASSWORD = os.getenv("BUTTERVMS_ADMIN_PASSWORD", "change-me-now")
 ADMIN_ENABLED = os.getenv("BUTTERVMS_ENABLE_ADMIN", "0") == "1"
 _DOCKER_CLIENT = docker.DockerClient(base_url="unix://var/run/docker.sock")
+_VM_SIGNER = URLSafeSerializer(app.secret_key, salt="buttervms-vm-access")
 
 
 @dataclass(frozen=True)
@@ -79,6 +91,7 @@ class SessionRecord:
     vnc_port: int
     container_name: str
     payment_reference: str
+    owner_token: str
     created_at: str
     expires_at: str
 
@@ -115,11 +128,19 @@ def init_db() -> None:
                 vnc_port INTEGER NOT NULL,
                 container_name TEXT NOT NULL,
                 payment_reference TEXT DEFAULT '',
+                owner_token TEXT DEFAULT '',
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL
             )
             """
         )
+
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(sessions)").fetchall()
+        }
+        if "owner_token" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN owner_token TEXT DEFAULT ''")
 
 
 def row_to_session(row: sqlite3.Row) -> SessionRecord:
@@ -132,6 +153,7 @@ def row_to_session(row: sqlite3.Row) -> SessionRecord:
         vnc_port=row["vnc_port"],
         container_name=row["container_name"],
         payment_reference=row["payment_reference"] or "",
+        owner_token=row["owner_token"] or "",
         created_at=row["created_at"],
         expires_at=row["expires_at"],
     )
@@ -143,8 +165,8 @@ def save_session(record: SessionRecord) -> None:
             """
             INSERT INTO sessions (
                 session_id, vm_reference, tier_key, status, web_port, vnc_port,
-                container_name, payment_reference, created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                container_name, payment_reference, owner_token, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record.session_id,
@@ -155,6 +177,7 @@ def save_session(record: SessionRecord) -> None:
                 record.vnc_port,
                 record.container_name,
                 record.payment_reference,
+                record.owner_token,
                 record.created_at,
                 record.expires_at,
             ),
@@ -228,7 +251,9 @@ def get_mapped_port(container_name: str, internal_port: str) -> tuple[bool, int 
         return False, None, f"Could not parse mapped port from '{host_port}'."
 
 
-def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool, str, SessionRecord | None]:
+def launch_session(
+    tier: PerformanceTier, payment_reference: str, owner_token: str
+) -> tuple[bool, str, SessionRecord | None]:
     session_id = uuid4().hex
     vm_reference = f"bvm-{session_id[:10]}"
     container_name = f"{CONTAINER_PREFIX}-{session_id[:12]}"
@@ -237,15 +262,10 @@ def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool,
         "name": container_name,
         "detach": True,
         "shm_size": "1g",
-        "ports": {"5800/tcp": None, "5900/tcp": None},
+        "ports": {"80/tcp": None, "5900/tcp": None},
         "environment": {
-            "KEEP_APP_RUNNING": "1",
             "VNC_PASSWORD": "buttervms",
             "RESOLUTION": "1440x900",
-            "USER": "butter",
-            "PASSWORD": "butter",
-            "DISPLAY_WIDTH": "1440",
-            "DISPLAY_HEIGHT": "900",
         },
         "auto_remove": False,
     }
@@ -264,7 +284,7 @@ def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool,
         except DockerException as exc:
             return False, f"Failed to start VM container: {exc}", None
 
-    web_ok, web_port, web_msg = get_mapped_port(container_name, "5800/tcp")
+    web_ok, web_port, web_msg = get_mapped_port(container_name, "80/tcp")
     vnc_ok, vnc_port, vnc_msg = get_mapped_port(container_name, "5900/tcp")
     if not web_ok or not vnc_ok or web_port is None or vnc_port is None:
         stop_container(container_name)
@@ -281,6 +301,7 @@ def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool,
         vnc_port=vnc_port,
         container_name=container_name,
         payment_reference=payment_reference,
+        owner_token=owner_token,
         created_at=utc_text(created),
         expires_at=utc_text(expires),
     )
@@ -301,6 +322,45 @@ def session_urls(record: SessionRecord, request_host: str) -> tuple[str, str]:
 
 def is_admin_authenticated() -> bool:
     return bool(flask_session.get("admin_authenticated"))
+
+
+def get_or_create_owner_token() -> str:
+    token = flask_session.get("owner_token")
+    if token:
+        return token
+    token = uuid4().hex
+    flask_session["owner_token"] = token
+    return token
+
+
+def build_vm_access_token(record: SessionRecord) -> str:
+    payload = {
+        "session_id": record.session_id,
+        "owner_token": record.owner_token,
+    }
+    return _VM_SIGNER.dumps(payload)
+
+
+def has_session_access(record: SessionRecord, token: str) -> bool:
+    if is_admin_authenticated():
+        return True
+
+    owner_token = flask_session.get("owner_token", "")
+    if owner_token and record.owner_token and owner_token == record.owner_token:
+        return True
+
+    if not token:
+        return False
+
+    try:
+        payload = _VM_SIGNER.loads(token)
+    except BadSignature:
+        return False
+
+    return (
+        payload.get("session_id") == record.session_id
+        and payload.get("owner_token") == record.owner_token
+    )
 
 
 def admin_is_reachable() -> bool:
@@ -339,25 +399,14 @@ def boot_runtime() -> None:
 
 @app.get("/")
 def home():
-    live_sessions = get_live_sessions()[:10]
-    sessions_payload: list[dict[str, str]] = []
-    for item in live_sessions:
-        sessions_payload.append(
-            {
-                "vm_reference": item.vm_reference,
-                "tier": TIERS[item.tier_key].name,
-                "status": item.status,
-                "expires_at": display_utc(item.expires_at),
-                "session_link": url_for("session_details", session_id=item.session_id),
-            }
-        )
+    get_or_create_owner_token()
+    demo_browser_url = f"http://{host_only(request.host)}:6080"
 
     return render_template(
         "index.html",
         tiers=TIERS.values(),
         btc_wallet=BTC_WALLET_ADDRESS,
-        live_sessions=sessions_payload,
-        demo_browser_url=DEMO_BROWSER_URL,
+        demo_browser_url=demo_browser_url,
         admin_enabled=admin_is_reachable(),
         admin_link=url_for("admin_home"),
     )
@@ -365,6 +414,7 @@ def home():
 
 @app.post("/create-vm")
 def create_vm():
+    owner_token = get_or_create_owner_token()
     tier_key = request.form.get("tier", "standard").lower()
     selected_tier = TIERS.get(tier_key, TIERS["standard"])
     payment_reference = request.form.get("payment_reference", "").strip()
@@ -410,7 +460,7 @@ def create_vm():
             payment_reference=payment_reference,
         )
 
-    launch_ok, launch_message, session = launch_session(selected_tier, payment_reference)
+    launch_ok, launch_message, session = launch_session(selected_tier, payment_reference, owner_token)
     web_url = ""
     vnc_target = ""
     vm_reference = "n/a"
@@ -423,6 +473,13 @@ def create_vm():
         created_at = display_utc(session.created_at)
         expires_at = display_utc(session.expires_at)
         session_id = session.session_id
+
+    vm_link = ""
+    dashboard_link = ""
+    if session:
+        token = build_vm_access_token(session)
+        vm_link = url_for("session_vm", session_id=session_id, token=token)
+        dashboard_link = url_for("session_details", session_id=session_id, token=token)
 
     return render_template(
         "result.html",
@@ -439,57 +496,90 @@ def create_vm():
         btc_wallet=BTC_WALLET_ADDRESS,
         launch_ok=launch_ok,
         launch_message=launch_message,
-        web_url=web_url,
-        vnc_target=vnc_target,
+        vm_link=vm_link,
+        dashboard_link=dashboard_link,
         expires_at=expires_at,
         session_id=session_id,
         payment_reference=payment_reference,
-        session_link=url_for("session_details", session_id=session_id) if session_id else "",
+        session_link=dashboard_link,
     )
 
 
 @app.get("/session/<session_id>")
 def session_details(session_id: str):
-    session = get_session(session_id)
-    if not session:
+    session_record = get_session(session_id)
+    if not session_record:
         return render_template("session_not_found.html"), 404
 
-    tier = TIERS[session.tier_key]
-    web_url, vnc_target = session_urls(session, request.host)
+    token = request.args.get("token", "")
+    if not has_session_access(session_record, token):
+        return "Forbidden", 403
+
+    tier = TIERS[session_record.tier_key]
+    vm_link = url_for("session_vm", session_id=session_id, token=token)
     return render_template(
         "session.html",
-        session=session,
+        session=session_record,
         tier=tier,
-        web_url=web_url,
-        vnc_target=vnc_target,
-        created_at=display_utc(session.created_at),
-        expires_at=display_utc(session.expires_at),
+        vm_link=vm_link,
+        created_at=display_utc(session_record.created_at),
+        expires_at=display_utc(session_record.expires_at),
+        token=token,
+    )
+
+
+@app.get("/vm/<session_id>")
+def session_vm(session_id: str):
+    session_record = get_session(session_id)
+    if not session_record:
+        return render_template("session_not_found.html"), 404
+
+    token = request.args.get("token", "")
+    if not has_session_access(session_record, token):
+        return "Forbidden", 403
+
+    web_url, _ = session_urls(session_record, request.host)
+
+    return render_template(
+        "vm.html",
+        session=session_record,
+        vm_embed_url=web_url,
+        created_at=display_utc(session_record.created_at),
+        expires_at=display_utc(session_record.expires_at),
+        dashboard_link=url_for("session_details", session_id=session_id, token=token),
     )
 
 
 @app.post("/session/<session_id>/stop")
 def stop_session(session_id: str):
-    session = get_session(session_id)
-    if not session:
+    session_record = get_session(session_id)
+    if not session_record:
         return redirect(url_for("home"))
 
-    if session.status == "running":
-        ok, _ = stop_container(session.container_name)
+    token = request.args.get("token", "")
+    if not has_session_access(session_record, token):
+        return "Forbidden", 403
+
+    if session_record.status == "running":
+        ok, _ = stop_container(session_record.container_name)
         if ok:
             update_session_status(session_id, "stopped")
 
-    return redirect(url_for("session_details", session_id=session_id))
+    return redirect(url_for("session_details", session_id=session_id, token=token))
 
 
 @app.get("/api/session/<session_id>")
 def api_session(session_id: str):
-    session = get_session(session_id)
-    if not session:
+    session_record = get_session(session_id)
+    if not session_record:
         return jsonify({"error": "not_found"}), 404
 
-    web_url, vnc_target = session_urls(session, request.host)
+    token = request.args.get("token", "")
+    if not has_session_access(session_record, token):
+        return jsonify({"error": "forbidden"}), 403
+
     now = now_utc()
-    expires = datetime.strptime(session.expires_at, "%Y-%m-%d %H:%M:%S").replace(
+    expires = datetime.strptime(session_record.expires_at, "%Y-%m-%d %H:%M:%S").replace(
         tzinfo=timezone.utc
     )
     remaining_seconds = int((expires - now).total_seconds())
@@ -498,14 +588,12 @@ def api_session(session_id: str):
 
     return jsonify(
         {
-            "session_id": session.session_id,
-            "vm_reference": session.vm_reference,
-            "tier": session.tier_key,
-            "status": session.status,
-            "web_url": web_url,
-            "vnc_target": vnc_target,
-            "created_at": session.created_at,
-            "expires_at": session.expires_at,
+            "session_id": session_record.session_id,
+            "vm_reference": session_record.vm_reference,
+            "tier": session_record.tier_key,
+            "status": session_record.status,
+            "created_at": session_record.created_at,
+            "expires_at": session_record.expires_at,
             "remaining_seconds": remaining_seconds,
         }
     )

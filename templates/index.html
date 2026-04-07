@@ -78,23 +78,6 @@
         <p>Premium customers pay in BTC before session launch.</p>
         <code>{{ btc_wallet }}</code>
       </section>
-
-      <section class="btc-note reveal">
-        <h3>Active browser VM sessions</h3>
-        {% if live_sessions %}
-        <ul>
-          {% for item in live_sessions %}
-          <li>
-            {{ item.vm_reference }} ({{ item.tier }}) -
-            <a href="{{ item.session_link }}" rel="noopener noreferrer">Open Session</a>
-            - Status {{ item.status }} - Expires {{ item.expires_at }}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p>No running sessions yet.</p>
-        {% endif %}
-      </section>
     </main>
   </body>
 </html>

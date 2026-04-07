@@ -42,11 +42,11 @@
         <div class="btc-box">
           <h3>Access Your VM</h3>
           <p style="margin-top: 1rem;">
-            <a class="vnc-link" href="{{ web_url }}" target="_blank" rel="noopener noreferrer">→ Open Browser VM</a>
+            <a class="vnc-link" href="{{ vm_link }}">→ Open Browser VM</a>
           </p>
         </div>
 
-        <form action="/session/{{ session.session_id }}/stop" method="post">
+        <form action="/session/{{ session.session_id }}/stop?token={{ token }}" method="post">
           <button type="submit" class="warn">Stop Session Now</button>
         </form>
         <a class="back-link" href="/">Back to tiers</a>
@@ -55,6 +55,7 @@
 
     <script>
       const sessionId = "{{ session.session_id }}";
+      const token = "{{ token }}";
 
       function renderDuration(totalSeconds) {
         const hrs = Math.floor(totalSeconds / 3600);
@@ -64,7 +65,7 @@
       }
 
       async function refreshSession() {
-        const response = await fetch(`/api/session/${sessionId}`);
+        const response = await fetch(`/api/session/${sessionId}?token=${encodeURIComponent(token)}`);
         if (!response.ok) {
           document.getElementById("time-left").textContent = "Session unavailable";
           return;

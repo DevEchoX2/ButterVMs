@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS VM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="page">
+      <section class="result-card reveal">
+        <p class="pill">Live VM</p>
+        <h1>{{ session.vm_reference }}</h1>
+        <p>{{ session.tier_key|title }} tier browser VM</p>
+
+        <div class="btc-box">
+          <p>Created: {{ created_at }}</p>
+          <p>Expires: {{ expires_at }}</p>
+          <p>This view is hosted on port 8000 and opens the live VM below.</p>
+        </div>
+
+        <div class="btc-box" style="margin-top: 1rem;">
+          <iframe class="vnc-preview" src="{{ vm_embed_url }}" title="ButterVMS Live VM" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        </div>
+
+        <p style="margin-top: 1rem;">
+          <a class="vnc-link" href="{{ dashboard_link }}">→ Back to Session Dashboard</a>
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

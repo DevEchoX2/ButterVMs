@@ -1,18 +1,13 @@
 services:
   browser-demo:
-    image: jlesage/firefox:latest
+    image: dorowu/ubuntu-desktop-lxde-vnc:latest
     container_name: buttervms-browser-demo
     restart: unless-stopped
     ports:
-      - "6080:5800"
-      - "5901:5900"
+      - "6080:80"
     environment:
-      KEEP_APP_RUNNING: "1"
-      DISPLAY_WIDTH: "1440"
-      DISPLAY_HEIGHT: "900"
+      RESOLUTION: "1366x768"
       VNC_PASSWORD: "buttervms"
-      USER_ID: "1000"
-      GROUP_ID: "1000"
 
   buttervms-api:
     build:
@@ -25,9 +20,8 @@ services:
     environment:
       BUTTERVMS_DEBUG: "0"
       BUTTERVMS_DB_PATH: "/data/buttervms.db"
-      BUTTERVMS_VNC_IMAGE: "jlesage/firefox:latest"
+      BUTTERVMS_VNC_IMAGE: "dorowu/ubuntu-desktop-lxde-vnc:latest"
       BUTTERVMS_CONTAINER_PREFIX: "buttervms-session"
-      BUTTERVMS_DEMO_BROWSER_URL: "http://127.0.0.1:6080"
       BUTTERVMS_ENABLE_ADMIN: "1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
