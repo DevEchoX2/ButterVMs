@@ -19,10 +19,16 @@
         <p class="pill">KasmVNC Powered</p>
         <h1>ButterVMS</h1>
         <p>
-          Spin up browser-based VNC virtual machines with a smooth butter-themed control panel.
+          Spin up browser-based VMs with a smooth butter-themed control panel.
           Free tier runs for 45 minutes. Paid tier runs for 8 hours.
         </p>
       </header>
+
+      <section class="btc-note reveal">
+        <h3>Fast test port</h3>
+        <p>Use the browser demo here first. Port 8000 is the control panel, and this demo shows the browser VM itself.</p>
+        <code>{{ demo_browser_url }}</code>
+      </section>
 
       <section class="tier-grid">
         {% for tier in tiers %}
@@ -72,7 +78,7 @@
           {% for item in live_sessions %}
           <li>
             {{ item.vm_reference }} ({{ item.tier }}) -
-            <a href="{{ item.web_url }}" target="_blank" rel="noopener noreferrer">Open</a>
+            <a href="{{ item.web_url }}" target="_blank" rel="noopener noreferrer">Open Browser VM</a>
             - Expires {{ item.expires_at }} - VNC {{ item.vnc_target }}
           </li>
           {% endfor %}

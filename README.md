@@ -4,7 +4,7 @@ ButterVMS is a browser-VM platform (Kasm-style experience) built with Python.
 
 It includes:
 - Full-stack control plane in [app.py](app.py)
-- Browser VNC VM sessions per request using Docker containers
+- Browser VM sessions per request using Docker containers
 - Free tier: 45-minute session limit
 - Paid tier: 8-hour session limit
 - BTC payment reference workflow for premium sessions
@@ -36,6 +36,7 @@ Open http://localhost:8000
 ## Session limits and monetization
 
 - Standard (Free): 45 minutes
+- Browser demo: http://localhost:6080
 - Premium (Paid): 8 hours
 
 Premium sessions require a BTC payment reference string in the UI (transaction ID or invoice ID).
@@ -62,6 +63,7 @@ Key runtime environment variables:
 - `BUTTERVMS_CONTAINER_PREFIX`: launched session container prefix
 - `BUTTERVMS_SWEEPER_SECONDS`: expiry cleanup loop interval
 - `BUTTERVMS_DEBUG`: set `1` for debug mode
+- `BUTTERVMS_DEMO_BROWSER_URL`: stable browser demo URL shown on the home page
 
 See deployment wiring in [docker-compose.yml](docker-compose.yml).
 

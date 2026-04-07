@@ -17,7 +17,8 @@ app = Flask(__name__)
 # Your BTC payout wallet address
 BTC_WALLET_ADDRESS = "bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0"
 DB_PATH = os.getenv("BUTTERVMS_DB_PATH", "buttervms.db")
-VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "dorowu/ubuntu-desktop-lxde-vnc:latest")
+VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "jlesage/firefox:latest")
+DEMO_BROWSER_URL = os.getenv("BUTTERVMS_DEMO_BROWSER_URL", "http://127.0.0.1:6080")
 CONTAINER_PREFIX = os.getenv("BUTTERVMS_CONTAINER_PREFIX", "buttervms-session")
 SESSION_SWEEPER_SECONDS = int(os.getenv("BUTTERVMS_SWEEPER_SECONDS", "30"))
 _DOCKER_CLIENT = docker.DockerClient(base_url="unix://var/run/docker.sock")
@@ -222,12 +223,15 @@ def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool,
         "name": container_name,
         "detach": True,
         "shm_size": "1g",
-        "ports": {"80/tcp": None, "5900/tcp": None},
+        "ports": {"5800/tcp": None, "5900/tcp": None},
         "environment": {
+            "KEEP_APP_RUNNING": "1",
             "VNC_PASSWORD": "buttervms",
             "RESOLUTION": "1440x900",
             "USER": "butter",
             "PASSWORD": "butter",
+            "DISPLAY_WIDTH": "1440",
+            "DISPLAY_HEIGHT": "900",
         },
         "auto_remove": False,
     }
@@ -246,7 +250,7 @@ def launch_session(tier: PerformanceTier, payment_reference: str) -> tuple[bool,
         except DockerException as exc:
             return False, f"Failed to start VM container: {exc}", None
 
-    web_ok, web_port, web_msg = get_mapped_port(container_name, "80/tcp")
+    web_ok, web_port, web_msg = get_mapped_port(container_name, "5800/tcp")
     vnc_ok, vnc_port, vnc_msg = get_mapped_port(container_name, "5900/tcp")
     if not web_ok or not vnc_ok or web_port is None or vnc_port is None:
         stop_container(container_name)
@@ -332,6 +336,7 @@ def home():
         tiers=TIERS.values(),
         btc_wallet=BTC_WALLET_ADDRESS,
         live_sessions=sessions_payload,
+        demo_browser_url=DEMO_BROWSER_URL,
     )
 
 
