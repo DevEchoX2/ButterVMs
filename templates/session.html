@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS Session</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="page">
+      <section class="result-card reveal">
+        <p class="pill">Session Dashboard</p>
+        <h1>{{ session.vm_reference }}</h1>
+        <p>{{ tier.name }} tier browser VM</p>
+
+        <div class="meta-grid">
+          <div>
+            <h4>Status</h4>
+            <p id="session-status">{{ session.status }}</p>
+          </div>
+          <div>
+            <h4>Created</h4>
+            <p>{{ created_at }}</p>
+          </div>
+          <div>
+            <h4>Expires</h4>
+            <p>{{ expires_at }}</p>
+          </div>
+          <div>
+            <h4>Time remaining</h4>
+            <p id="time-left">Loading...</p>
+          </div>
+        </div>
+
+        <div class="btc-box">
+          <h3>Access</h3>
+          <code id="web-url">{{ web_url }}</code>
+          <code id="vnc-target">{{ vnc_target }}</code>
+          <p>
+            <a class="vnc-link" href="{{ web_url }}" target="_blank" rel="noopener noreferrer">Open Browser VM</a>
+          </p>
+        </div>
+
+        <form action="/session/{{ session.session_id }}/stop" method="post">
+          <button type="submit" class="warn">Stop Session Now</button>
+        </form>
+        <a class="back-link" href="/">Back to tiers</a>
+      </section>
+    </main>
+
+    <script>
+      const sessionId = "{{ session.session_id }}";
+
+      function renderDuration(totalSeconds) {
+        const hrs = Math.floor(totalSeconds / 3600);
+        const mins = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+        return `${hrs}h ${mins}m ${secs}s`;
+      }
+
+      async function refreshSession() {
+        const response = await fetch(`/api/session/${sessionId}`);
+        if (!response.ok) {
+          document.getElementById("time-left").textContent = "Session unavailable";
+          return;
+        }
+
+        const data = await response.json();
+        document.getElementById("session-status").textContent = data.status;
+        document.getElementById("web-url").textContent = data.web_url;
+        document.getElementById("vnc-target").textContent = data.vnc_target;
+        document.getElementById("time-left").textContent = renderDuration(data.remaining_seconds);
+      }
+
+      refreshSession();
+      setInterval(refreshSession, 1000);
+    </script>
+  </body>
+</html>

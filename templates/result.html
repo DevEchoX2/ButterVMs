@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS Result</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="page">
+      <section class="result-card reveal {% if success %}ok{% else %}hold{% endif %}">
+        <p class="pill">ButterVMS</p>
+        <h1>{{ title }}</h1>
+        <p>{{ message }}</p>
+
+        <div class="meta-grid">
+          <div>
+            <h4>Reference</h4>
+            <p>{{ vm_reference }}</p>
+          </div>
+          <div>
+            <h4>Tier</h4>
+            <p>{{ selected_tier.name }} - {{ selected_tier.vnc_profile }}</p>
+          </div>
+          <div>
+            <h4>CPU / RAM / Storage</h4>
+            <p>{{ selected_tier.cpu }} vCPU / {{ selected_tier.ram_gb }} GB / {{ selected_tier.storage_gb }} GB</p>
+          </div>
+          <div>
+            <h4>Requested</h4>
+            <p>{{ created_at }}</p>
+          </div>
+        </div>
+
+        {% if not success %}
+        <div class="btc-box">
+          <h3>BTC Billing</h3>
+          <p>Route invoices/payments to this wallet:</p>
+          <code>{{ btc_wallet }}</code>
+          {% if launch_message %}
+          <p>{{ launch_message }}</p>
+          {% endif %}
+          {% if payment_reference %}
+          <p>Payment reference: {{ payment_reference }}</p>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if web_url %}
+        <div class="btc-box">
+          <h3>Browser VM Session</h3>
+          <p>{{ launch_message }}</p>
+          <p>Expires at: {{ expires_at }}</p>
+          <code>{{ web_url }}</code>
+          <code>{{ vnc_target }}</code>
+          <p>
+            <a class="vnc-link" href="{{ web_url }}" target="_blank" rel="noopener noreferrer">Open Browser VM</a>
+            <a class="vnc-link" href="/session/{{ session_id }}">Manage Session</a>
+          </p>
+          {% if launch_ok %}
+          <iframe class="vnc-preview" src="{{ web_url }}" title="ButterVMS VNC Preview"></iframe>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <a class="back-link" href="/">Back to tiers</a>
+      </section>
+    </main>
+  </body>
+</html>

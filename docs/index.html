@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS | Browser VM Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="pill">ButterVMS Static Site</p>
+        <h1>Browser VMs for your servers</h1>
+        <p>
+          ButterVMS gives your users browser-based desktops with simple tier controls.
+          Free sessions run for 45 minutes, paid sessions run for 8 hours.
+        </p>
+      </header>
+
+      <section class="cards">
+        <article class="card">
+          <h2>Free Tier</h2>
+          <p>45-minute browser VM sessions for onboarding and lightweight usage.</p>
+        </article>
+        <article class="card">
+          <h2>Paid Tier</h2>
+          <p>8-hour browser VM sessions for full workdays and premium users.</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Connect to your full stack API</h2>
+        <p>
+          Set your backend URL below and launch the live ButterVMS control panel.
+        </p>
+        <label for="api-url">Full stack URL</label>
+        <input id="api-url" type="text" placeholder="https://your-server.example.com" />
+        <button id="open-live">Open Live App</button>
+      </section>
+
+      <section class="card">
+        <h2>Product positioning</h2>
+        <ul>
+          <li>Browser-first VNC sessions</li>
+          <li>Time-boxed free access to protect capacity</li>
+          <li>Long-duration paid sessions for monetization</li>
+          <li>BTC-ready premium workflow</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

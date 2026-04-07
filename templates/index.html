@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="page">
+      <header class="hero reveal">
+        <p class="pill">KasmVNC Powered</p>
+        <h1>ButterVMS</h1>
+        <p>
+          Spin up browser-based VNC virtual machines with a smooth butter-themed control panel.
+          Free tier runs for 45 minutes. Paid tier runs for 8 hours.
+        </p>
+      </header>
+
+      <section class="tier-grid">
+        {% for tier in tiers %}
+        <article class="tier-card reveal {% if not tier.available %}locked{% endif %}">
+          <div class="card-top">
+            <h2>{{ tier.name }}</h2>
+            <span class="price">{{ tier.price_label }}</span>
+          </div>
+          <p class="desc">{{ tier.description }}</p>
+          <ul>
+            <li>{{ tier.cpu }} vCPU</li>
+            <li>{{ tier.ram_gb }} GB RAM</li>
+            <li>{{ tier.storage_gb }} GB Storage</li>
+            <li>{{ tier.vnc_profile }}</li>
+            <li>{{ tier.session_minutes }} minute session window</li>
+          </ul>
+          <form action="/create-vm" method="post">
+            <input type="hidden" name="tier" value="{{ tier.key }}" />
+            {% if tier.key == 'premium' %}
+            <label for="payment-{{ tier.key }}">BTC payment reference</label>
+            <input
+              id="payment-{{ tier.key }}"
+              name="payment_reference"
+              type="text"
+              placeholder="transaction id or invoice id"
+              required
+            />
+            {% endif %}
+            <button type="submit" {% if not tier.available %}class="warn"{% endif %}>
+              {% if tier.available %}Start Browser VM{% else %}Unavailable{% endif %}
+            </button>
+          </form>
+        </article>
+        {% endfor %}
+      </section>
+
+      <section class="btc-note reveal">
+        <h3>BTC payout wallet</h3>
+        <p>Premium customers pay in BTC before session launch.</p>
+        <code>{{ btc_wallet }}</code>
+      </section>
+
+      <section class="btc-note reveal">
+        <h3>Active browser VM sessions</h3>
+        {% if live_sessions %}
+        <ul>
+          {% for item in live_sessions %}
+          <li>
+            {{ item.vm_reference }} ({{ item.tier }}) -
+            <a href="{{ item.web_url }}" target="_blank" rel="noopener noreferrer">Open</a>
+            - Expires {{ item.expires_at }} - VNC {{ item.vnc_target }}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No running sessions yet.</p>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

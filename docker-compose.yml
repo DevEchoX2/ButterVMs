@@ -1,0 +1,20 @@
+services:
+  buttervms-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: buttervms-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      BUTTERVMS_DEBUG: "0"
+      BUTTERVMS_DB_PATH: "/data/buttervms.db"
+      BUTTERVMS_VNC_IMAGE: "dorowu/ubuntu-desktop-lxde-vnc:latest"
+      BUTTERVMS_CONTAINER_PREFIX: "buttervms-session"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - buttervms_data:/data
+
+volumes:
+  buttervms_data:
