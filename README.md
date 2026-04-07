@@ -5,6 +5,7 @@ ButterVMS is a browser-VM platform (Kasm-style experience) built with Python.
 It includes:
 - Full-stack control plane in [app.py](app.py)
 - Browser VM sessions per request using Docker containers
+- External provider mode for real Windows 10/11 VM backends
 - Free tier: 45-minute session limit
 - Paid tier: 8-hour session limit
 - BTC payment reference workflow for premium sessions
@@ -39,15 +40,39 @@ BTC wallet configured in [app.py](app.py):
 
 Key runtime environment variables:
 - `BUTTERVMS_DB_PATH`: SQLite DB location
+- `BUTTERVMS_VM_PROVIDER`: `local` or `external`
 - `BUTTERVMS_VNC_IMAGE`: Browser VM container image
 - `BUTTERVMS_CONTAINER_PREFIX`: launched session container prefix
 - `BUTTERVMS_SWEEPER_SECONDS`: expiry cleanup loop interval
 - `BUTTERVMS_DEBUG`: set `1` for debug mode
+- `BUTTERVMS_EXTERNAL_API_BASE_URL`: external VM provider API base URL
+- `BUTTERVMS_EXTERNAL_API_KEY`: bearer token for external VM provider API
+- `BUTTERVMS_EXTERNAL_CREATE_PATH`: create endpoint path (default `/v1/vms`)
+- `BUTTERVMS_EXTERNAL_DELETE_PATH`: terminate endpoint path with `{external_id}` placeholder
+- `BUTTERVMS_EXTERNAL_TIMEOUT_SECONDS`: provider API timeout in seconds
 - `BUTTERVMS_ENABLE_ADMIN`: set `1` to enable `/admin` (default `0`)
 - `BUTTERVMS_ADMIN_PASSWORD`: password for the admin control panel
 - `BUTTERVMS_SESSION_SECURE`: set `1` behind HTTPS for secure cookies
 
 See deployment wiring in [docker-compose.yml](docker-compose.yml).
+
+## Windows 10/11 backend mode
+
+Set `BUTTERVMS_VM_PROVIDER=external` and point the external API variables to your Windows backend.
+
+Expected create response JSON:
+
+```json
+{
+	"external_id": "vm-123",
+	"vm_url": "https://windows-gateway.example.com/session/abc",
+	"vnc_target": "optional-vnc-target"
+}
+```
+
+Expected delete endpoint:
+- `DELETE {BUTTERVMS_EXTERNAL_API_BASE_URL}{BUTTERVMS_EXTERNAL_DELETE_PATH}`
+- where `{external_id}` in path is replaced by response `external_id`
 
 ## Production notes
 

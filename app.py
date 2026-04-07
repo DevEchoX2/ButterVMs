@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import json
 import os
 import sqlite3
 import threading
 import time
+import urllib.error
+import urllib.request
 from uuid import uuid4
 
 import docker
@@ -30,11 +33,17 @@ def add_security_headers(response):
 # Your BTC payout wallet address
 BTC_WALLET_ADDRESS = "bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0"
 DB_PATH = os.getenv("BUTTERVMS_DB_PATH", "buttervms.db")
+VM_PROVIDER = os.getenv("BUTTERVMS_VM_PROVIDER", "local").lower()
 VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "dorowu/ubuntu-desktop-lxde-vnc:latest")
 CONTAINER_PREFIX = os.getenv("BUTTERVMS_CONTAINER_PREFIX", "buttervms-session")
 SESSION_SWEEPER_SECONDS = int(os.getenv("BUTTERVMS_SWEEPER_SECONDS", "30"))
 ADMIN_PASSWORD = os.getenv("BUTTERVMS_ADMIN_PASSWORD", "change-me-now")
 ADMIN_ENABLED = os.getenv("BUTTERVMS_ENABLE_ADMIN", "0") == "1"
+EXTERNAL_API_BASE_URL = os.getenv("BUTTERVMS_EXTERNAL_API_BASE_URL", "")
+EXTERNAL_API_KEY = os.getenv("BUTTERVMS_EXTERNAL_API_KEY", "")
+EXTERNAL_CREATE_PATH = os.getenv("BUTTERVMS_EXTERNAL_CREATE_PATH", "/v1/vms")
+EXTERNAL_DELETE_PATH = os.getenv("BUTTERVMS_EXTERNAL_DELETE_PATH", "/v1/vms/{external_id}")
+EXTERNAL_TIMEOUT_SECONDS = int(os.getenv("BUTTERVMS_EXTERNAL_TIMEOUT_SECONDS", "30"))
 _DOCKER_CLIENT = docker.DockerClient(base_url="unix://var/run/docker.sock")
 _VM_SIGNER = URLSafeSerializer(app.secret_key, salt="buttervms-vm-access")
 
@@ -92,6 +101,10 @@ class SessionRecord:
     container_name: str
     payment_reference: str
     owner_token: str
+    provider: str
+    external_id: str
+    vm_url: str
+    vnc_target: str
     created_at: str
     expires_at: str
 
@@ -129,6 +142,10 @@ def init_db() -> None:
                 container_name TEXT NOT NULL,
                 payment_reference TEXT DEFAULT '',
                 owner_token TEXT DEFAULT '',
+                provider TEXT DEFAULT 'local',
+                external_id TEXT DEFAULT '',
+                vm_url TEXT DEFAULT '',
+                vnc_target TEXT DEFAULT '',
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL
             )
@@ -141,6 +158,14 @@ def init_db() -> None:
         }
         if "owner_token" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN owner_token TEXT DEFAULT ''")
+        if "provider" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN provider TEXT DEFAULT 'local'")
+        if "external_id" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN external_id TEXT DEFAULT ''")
+        if "vm_url" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN vm_url TEXT DEFAULT ''")
+        if "vnc_target" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN vnc_target TEXT DEFAULT ''")
 
 
 def row_to_session(row: sqlite3.Row) -> SessionRecord:
@@ -154,6 +179,10 @@ def row_to_session(row: sqlite3.Row) -> SessionRecord:
         container_name=row["container_name"],
         payment_reference=row["payment_reference"] or "",
         owner_token=row["owner_token"] or "",
+        provider=row["provider"] or "local",
+        external_id=row["external_id"] or "",
+        vm_url=row["vm_url"] or "",
+        vnc_target=row["vnc_target"] or "",
         created_at=row["created_at"],
         expires_at=row["expires_at"],
     )
@@ -165,8 +194,9 @@ def save_session(record: SessionRecord) -> None:
             """
             INSERT INTO sessions (
                 session_id, vm_reference, tier_key, status, web_port, vnc_port,
-                container_name, payment_reference, owner_token, created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                container_name, payment_reference, owner_token, provider, external_id,
+                vm_url, vnc_target, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record.session_id,
@@ -178,6 +208,10 @@ def save_session(record: SessionRecord) -> None:
                 record.container_name,
                 record.payment_reference,
                 record.owner_token,
+                record.provider,
+                record.external_id,
+                record.vm_url,
+                record.vnc_target,
                 record.created_at,
                 record.expires_at,
             ),
@@ -221,6 +255,8 @@ def get_all_sessions() -> list[SessionRecord]:
 
 
 def stop_container(container_name: str) -> tuple[bool, str]:
+    if not container_name:
+        return True, "No container bound to this session."
     try:
         container = _DOCKER_CLIENT.containers.get(container_name)
         container.remove(force=True)
@@ -251,6 +287,83 @@ def get_mapped_port(container_name: str, internal_port: str) -> tuple[bool, int 
         return False, None, f"Could not parse mapped port from '{host_port}'."
 
 
+def external_api_headers() -> dict[str, str]:
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if EXTERNAL_API_KEY:
+        headers["Authorization"] = f"Bearer {EXTERNAL_API_KEY}"
+    return headers
+
+
+def external_api_create_vm(
+    tier: PerformanceTier, payment_reference: str, owner_token: str
+) -> tuple[bool, str, dict[str, str] | None]:
+    if not EXTERNAL_API_BASE_URL:
+        return False, "External provider selected but BUTTERVMS_EXTERNAL_API_BASE_URL is empty.", None
+
+    payload = {
+        "tier": tier.key,
+        "duration_minutes": tier.session_minutes,
+        "payment_reference": payment_reference,
+        "owner_token": owner_token,
+        "profile": "windows10_or_11",
+    }
+    endpoint = f"{EXTERNAL_API_BASE_URL.rstrip('/')}{EXTERNAL_CREATE_PATH}"
+    req = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers=external_api_headers(),
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=EXTERNAL_TIMEOUT_SECONDS) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        return False, f"External provider create failed ({exc.code}): {detail}", None
+    except Exception as exc:
+        return False, f"External provider create failed: {exc}", None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return False, "External provider returned invalid JSON.", None
+
+    vm_url = str(data.get("vm_url", "")).strip()
+    if not vm_url:
+        return False, "External provider response missing vm_url.", None
+
+    return True, "External VM session started.", {
+        "external_id": str(data.get("external_id", "")).strip(),
+        "vm_url": vm_url,
+        "vnc_target": str(data.get("vnc_target", "")).strip(),
+    }
+
+
+def external_api_stop_vm(external_id: str) -> tuple[bool, str]:
+    if not external_id:
+        return True, "No external id recorded for this session."
+    if not EXTERNAL_API_BASE_URL:
+        return False, "External provider selected but BUTTERVMS_EXTERNAL_API_BASE_URL is empty."
+
+    path = EXTERNAL_DELETE_PATH.replace("{external_id}", external_id)
+    endpoint = f"{EXTERNAL_API_BASE_URL.rstrip('/')}{path}"
+    req = urllib.request.Request(
+        endpoint,
+        method="DELETE",
+        headers=external_api_headers(),
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=EXTERNAL_TIMEOUT_SECONDS):
+            return True, "External VM session stopped."
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        return False, f"External provider stop failed ({exc.code}): {detail}"
+    except Exception as exc:
+        return False, f"External provider stop failed: {exc}"
+
+
 def launch_session(
     tier: PerformanceTier, payment_reference: str, owner_token: str
 ) -> tuple[bool, str, SessionRecord | None]:
@@ -269,6 +382,33 @@ def launch_session(
         },
         "auto_remove": False,
     }
+
+    if VM_PROVIDER == "external":
+        ok, message, data = external_api_create_vm(tier, payment_reference, owner_token)
+        if not ok or data is None:
+            return False, message, None
+
+        created = now_utc()
+        expires = created + timedelta(minutes=tier.session_minutes)
+        record = SessionRecord(
+            session_id=session_id,
+            vm_reference=vm_reference,
+            tier_key=tier.key,
+            status="running",
+            web_port=0,
+            vnc_port=0,
+            container_name="",
+            payment_reference=payment_reference,
+            owner_token=owner_token,
+            provider="external",
+            external_id=data.get("external_id", ""),
+            vm_url=data.get("vm_url", ""),
+            vnc_target=data.get("vnc_target", ""),
+            created_at=utc_text(created),
+            expires_at=utc_text(expires),
+        )
+        save_session(record)
+        return True, message, record
 
     try:
         _DOCKER_CLIENT.containers.run(
@@ -302,6 +442,10 @@ def launch_session(
         container_name=container_name,
         payment_reference=payment_reference,
         owner_token=owner_token,
+        provider="local",
+        external_id="",
+        vm_url="",
+        vnc_target="",
         created_at=utc_text(created),
         expires_at=utc_text(expires),
     )
@@ -316,8 +460,16 @@ def host_only(host_header: str) -> str:
 
 
 def session_urls(record: SessionRecord, request_host: str) -> tuple[str, str]:
+    if record.vm_url:
+        return record.vm_url, record.vnc_target
     host = host_only(request_host)
     return f"http://{host}:{record.web_port}", f"{host}:{record.vnc_port}"
+
+
+def stop_session_runtime(record: SessionRecord) -> tuple[bool, str]:
+    if record.provider == "external":
+        return external_api_stop_vm(record.external_id)
+    return stop_container(record.container_name)
 
 
 def is_admin_authenticated() -> bool:
@@ -381,7 +533,10 @@ def expire_sessions_loop() -> None:
             ).fetchall()
 
         for row in rows:
-            stop_container(row["container_name"])
+            session_record = get_session(row["session_id"])
+            if not session_record:
+                continue
+            stop_session_runtime(session_record)
             update_session_status(row["session_id"], "expired")
 
         time.sleep(SESSION_SWEEPER_SECONDS)
@@ -459,14 +614,11 @@ def create_vm():
         )
 
     launch_ok, launch_message, session = launch_session(selected_tier, payment_reference, owner_token)
-    web_url = ""
-    vnc_target = ""
     vm_reference = "n/a"
     created_at = now_utc().strftime("%Y-%m-%d %H:%M UTC")
     expires_at = ""
     session_id = ""
     if session:
-        web_url, vnc_target = session_urls(session, request.host)
         vm_reference = session.vm_reference
         created_at = display_utc(session.created_at)
         expires_at = display_utc(session.expires_at)
@@ -590,6 +742,7 @@ def api_session(session_id: str):
             "vm_reference": session_record.vm_reference,
             "tier": session_record.tier_key,
             "status": session_record.status,
+            "provider": session_record.provider,
             "created_at": session_record.created_at,
             "expires_at": session_record.expires_at,
             "remaining_seconds": remaining_seconds,
@@ -656,7 +809,7 @@ def admin_kill_session(session_id: str):
 
     session_record = get_session(session_id)
     if session_record and session_record.status == "running":
-        stop_container(session_record.container_name)
+        stop_session_runtime(session_record)
         update_session_status(session_id, "stopped")
     return redirect(url_for("admin_home"))
 
@@ -670,7 +823,7 @@ def admin_kill_all():
         return redirect(url_for("admin_home"))
 
     for session_record in get_live_sessions():
-        stop_container(session_record.container_name)
+        stop_session_runtime(session_record)
         update_session_status(session_record.session_id, "stopped")
 
     return redirect(url_for("admin_home"))

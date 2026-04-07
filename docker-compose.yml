@@ -10,8 +10,14 @@ services:
     environment:
       BUTTERVMS_DEBUG: "0"
       BUTTERVMS_DB_PATH: "/data/buttervms.db"
+      BUTTERVMS_VM_PROVIDER: "local"
       BUTTERVMS_VNC_IMAGE: "dorowu/ubuntu-desktop-lxde-vnc:latest"
       BUTTERVMS_CONTAINER_PREFIX: "buttervms-session"
+      BUTTERVMS_EXTERNAL_API_BASE_URL: ""
+      BUTTERVMS_EXTERNAL_API_KEY: ""
+      BUTTERVMS_EXTERNAL_CREATE_PATH: "/v1/vms"
+      BUTTERVMS_EXTERNAL_DELETE_PATH: "/v1/vms/{external_id}"
+      BUTTERVMS_EXTERNAL_TIMEOUT_SECONDS: "30"
       BUTTERVMS_ENABLE_ADMIN: "1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

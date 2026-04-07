@@ -28,6 +28,13 @@ cp .env.example .env
 # Edit .env if needed (DB path, browser image, debug mode, etc.)
 ```
 
+For real Windows 10/11 VMs via your provider, set:
+- `BUTTERVMS_VM_PROVIDER=external`
+- `BUTTERVMS_EXTERNAL_API_BASE_URL`
+- `BUTTERVMS_EXTERNAL_API_KEY`
+- `BUTTERVMS_EXTERNAL_CREATE_PATH`
+- `BUTTERVMS_EXTERNAL_DELETE_PATH`
+
 ### Step 3: Start the full-stack app
 ```bash
 docker compose up -d --build
@@ -102,6 +109,8 @@ Caddy handles HTTPS automatically with Let's Encrypt.
   - Each VM gets a web port (e.g., 32770) and VNC port (e.g., 32771)
   - Users click "Open Session Dashboard" to manage their session
   - URLs are automatically generated with the server hostname
+
+When using external provider mode, session URLs come from your Windows backend API instead of local mapped ports.
 
 ### Admin panel
 
