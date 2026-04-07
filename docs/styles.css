@@ -64,6 +64,10 @@ body {
   margin-top: 1rem;
 }
 
+.launch-card {
+  margin-top: 1rem;
+}
+
 label {
   display: block;
   font-weight: 600;
@@ -119,4 +123,15 @@ button {
   padding: 0.65rem 0.85rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.secondary-button {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: #2a2200;
+}
+
+.helper {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
 }

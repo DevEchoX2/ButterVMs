@@ -22,6 +22,15 @@
           Free tier runs for 45 minutes. Paid tier runs for 8 hours.
         </p>
       </header>
+    <main class="page">
+      <header class="hero">
+        <p class="pill">KasmVNC Powered</p>
+        <h1>ButterVMS</h1>
+        <p>
+          Spin up browser-based VMs with a smooth butter-themed control panel.
+          Free tier runs for 45 minutes. Paid tier runs for 8 hours.
+        </p>
+      </header>
 
       <section class="card">
         <h2>Fast test port</h2>
@@ -30,6 +39,15 @@
           <li>Control panel: http://localhost:8000</li>
           <li>Browser demo: http://localhost:6080</li>
         </ul>
+      </section>
+
+      <section class="card launch-card">
+        <h2>Launch Browser VM</h2>
+        <p>Connect this to your own server later. The button below is the launch hook.</p>
+        <label for="server-url">Server URL</label>
+        <input id="server-url" type="text" placeholder="https://your-server.example.com" value="http://localhost:8000" />
+        <button id="launch-server" type="button">Start Browser VM</button>
+        <p class="helper">This opens your configured ButterVMS server in a new tab.</p>
       </section>
 
       <section class="cards">
@@ -42,6 +60,7 @@
             <li>25 GB Storage</li>
             <li>KasmVNC Standard Performance</li>
           </ul>
+          <button class="secondary-button" data-launch-path="/">Start Free VM</button>
         </article>
         <article class="card">
           <h2>Paid Tier</h2>
@@ -52,6 +71,7 @@
             <li>100 GB Storage</li>
             <li>KasmVNC Premium Performance</li>
           </ul>
+          <button class="secondary-button" data-launch-path="/">Start Paid VM</button>
         </article>
       </section>
 
@@ -66,5 +86,3 @@
         <p>This static page mirrors the live ButterVMS home screen layout. The live session list appears in the full-stack app on port 8000.</p>
       </section>
     </main>
-  </body>
-</html>
