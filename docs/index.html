@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ButterVMS | Browser VM Platform</title>
+    <title>ButterVMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,19 +15,17 @@
   <body>
     <main class="page">
       <header class="hero">
-        <p class="pill">ButterVMS Static Site</p>
-        <h1>Browser VMs for your servers</h1>
+        <p class="pill">KasmVNC Powered</p>
+        <h1>ButterVMS</h1>
         <p>
-          ButterVMS gives your users browser-based desktops with simple tier controls.
-          Free sessions run for 45 minutes, paid sessions run for 8 hours.
+          Spin up browser-based VMs with a smooth butter-themed control panel.
+          Free tier runs for 45 minutes. Paid tier runs for 8 hours.
         </p>
       </header>
 
       <section class="card">
-        <h2>Test it here</h2>
-        <p>
-          Port <strong>8000</strong> is the control panel. Port <strong>6080</strong> is the live browser demo.
-        </p>
+        <h2>Fast test port</h2>
+        <p>Port 8000 is the control panel, and port 6080 is the live browser demo.</p>
         <ul>
           <li>Control panel: http://localhost:8000</li>
           <li>Browser demo: http://localhost:6080</li>
@@ -38,35 +36,35 @@
         <article class="card">
           <h2>Free Tier</h2>
           <p>45-minute browser VM sessions for onboarding and lightweight usage.</p>
+          <ul>
+            <li>2 vCPU</li>
+            <li>4 GB RAM</li>
+            <li>25 GB Storage</li>
+            <li>KasmVNC Standard Performance</li>
+          </ul>
         </article>
         <article class="card">
           <h2>Paid Tier</h2>
           <p>8-hour browser VM sessions for full workdays and premium users.</p>
+          <ul>
+            <li>6 vCPU</li>
+            <li>16 GB RAM</li>
+            <li>100 GB Storage</li>
+            <li>KasmVNC Premium Performance</li>
+          </ul>
         </article>
       </section>
 
       <section class="card">
-        <h2>Features</h2>
-        <ul>
-          <li>✓ Browser-first VNC desktop access</li>
-          <li>✓ Free tier: 45-minute sessions</li>
-          <li>✓ Premium tier: 8-hour sessions</li>
-          <li>✓ Automatic session expiry &amp; cleanup</li>
-          <li>✓ BTC payment reference workflow</li>
-          <li>✓ Per-user isolated VM containers</li>
-        </ul>
+        <h2>BTC payout wallet</h2>
+        <p>Premium customers pay in BTC before session launch.</p>
+        <code>bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0</code>
       </section>
 
       <section class="card">
-        <h2>Deploy your own</h2>
-        <p>ButterVMS is fully open-source. Deploy to your servers with Docker Compose.</p>
-        <code>docker compose up -d --build</code>
-        <p style="margin-top: 1rem;">
-          <strong>Repository:</strong> <a href="https://github.com/DevEchoX2/ButterVMs" target="_blank" rel="noopener noreferrer">DevEchoX2/ButterVMs</a>
-        </p>
+        <h2>Sessions</h2>
+        <p>This static page mirrors the live ButterVMS home screen layout. The live session list appears in the full-stack app on port 8000.</p>
       </section>
     </main>
-
-    <script src="app.js"></script>
   </body>
 </html>

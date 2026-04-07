@@ -58,18 +58,10 @@
           <h3>Browser VM Session</h3>
           <p>{{ launch_message }}</p>
           <p>Expires at: {{ expires_at }}</p>
-          <p><strong>Browser URL:</strong> <code>{{ web_url }}</code></p>
-          <p><strong>VNC Target:</strong> <code>{{ vnc_target }}</code></p>
           <p style="margin-top: 1rem;">
-            <a class="vnc-link" href="{{ web_url }}" target="_blank" rel="noopener noreferrer">→ Open Browser VM Now</a>
-            <a class="vnc-link" href="/session/{{ session_id }}">→ Manage Session</a>
+            <a class="vnc-link" href="{{ session_link }}">→ Open Session Dashboard</a>
+            <a class="vnc-link" href="{{ session_link }}">→ Manage Session</a>
           </p>
-          {% if launch_ok %}
-          <div class="btc-box" style="margin-top: 1.5rem;">
-            <p>VM preview (may take 5-10 seconds to display):</p>
-            <iframe class="vnc-preview" src="{{ web_url }}" title="ButterVMS VNC Preview" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
-          </div>
-          {% endif %}
         </div>
         {% endif %}
 

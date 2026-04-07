@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="page">
+      <section class="result-card reveal">
+        <p class="pill">Admin</p>
+        <h1>ButterVMS Control Center</h1>
+        <p>Kill VMs, inspect ports, and manage sessions from one place.</p>
+
+        <form action="/admin/kill-all" method="post" style="margin-bottom: 1rem;">
+          <button type="submit" class="warn">Kill All Running VMs</button>
+        </form>
+
+        <form action="/admin/logout" method="post" style="margin-bottom: 1.5rem;">
+          <button type="submit">Logout</button>
+        </form>
+
+        <div class="meta-grid">
+          {% for item in sessions %}
+          <div class="btc-box">
+            <h3>{{ item.vm_reference }}</h3>
+            <p><strong>Tier:</strong> {{ item.tier }}</p>
+            <p><strong>Status:</strong> {{ item.status }}</p>
+            <p><strong>Created:</strong> {{ item.created_at }}</p>
+            <p><strong>Expires:</strong> {{ item.expires_at }}</p>
+            <p><strong>Browser:</strong> <code>{{ item.web_url }}</code></p>
+            <p><strong>VNC:</strong> <code>{{ item.vnc_target }}</code></p>
+            <form action="/admin/session/{{ item.session_id }}/kill" method="post">
+              <button type="submit" class="warn">Kill This VM</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if not sessions %}
+        <p>No sessions yet.</p>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

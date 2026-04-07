@@ -41,10 +41,6 @@
 
         <div class="btc-box">
           <h3>Access Your VM</h3>
-          <p><strong>Browser URL:</strong></p>
-          <code id="web-url">{{ web_url }}</code>
-          <p style="margin-top: 0.8rem;"><strong>VNC Target:</strong></p>
-          <code id="vnc-target">{{ vnc_target }}</code>
           <p style="margin-top: 1rem;">
             <a class="vnc-link" href="{{ web_url }}" target="_blank" rel="noopener noreferrer">→ Open Browser VM</a>
           </p>
@@ -76,8 +72,6 @@
 
         const data = await response.json();
         document.getElementById("session-status").textContent = data.status;
-        document.getElementById("web-url").textContent = data.web_url;
-        document.getElementById("vnc-target").textContent = data.vnc_target;
         document.getElementById("time-left").textContent = renderDuration(data.remaining_seconds);
       }
 
