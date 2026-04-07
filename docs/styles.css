@@ -77,6 +77,26 @@ input {
   background: rgba(255, 255, 255, 0.7);
 }
 
+code {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px dashed var(--ink);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-family: monospace;
+  font-size: 0.9em;
+  overflow-wrap: break-word;
+}
+
+a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 button {
   margin-top: 0.75rem;
   border: 2px solid var(--ink);
