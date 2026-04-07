@@ -400,13 +400,11 @@ def boot_runtime() -> None:
 @app.get("/")
 def home():
     get_or_create_owner_token()
-    demo_browser_url = f"http://{host_only(request.host)}:6080"
 
     return render_template(
         "index.html",
         tiers=TIERS.values(),
         btc_wallet=BTC_WALLET_ADDRESS,
-        demo_browser_url=demo_browser_url,
         admin_enabled=admin_is_reachable(),
         admin_link=url_for("admin_home"),
     )

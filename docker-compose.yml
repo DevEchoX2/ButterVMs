@@ -1,14 +1,4 @@
 services:
-  browser-demo:
-    image: dorowu/ubuntu-desktop-lxde-vnc:latest
-    container_name: buttervms-browser-demo
-    restart: unless-stopped
-    ports:
-      - "6080:80"
-    environment:
-      RESOLUTION: "1366x768"
-      VNC_PASSWORD: "buttervms"
-
   buttervms-api:
     build:
       context: .

@@ -5,7 +5,6 @@
 docker compose up -d --build
 ```
 Open http://localhost:8000
-Browser demo: http://localhost:6080
 Admin panel: disabled by default (enable with `BUTTERVMS_ENABLE_ADMIN=1`)
 
 ## Production Deployment to wafflev1.me
@@ -95,12 +94,10 @@ Caddy handles HTTPS automatically with Let's Encrypt.
 2. Create a Standard VM
 3. Click "→ Open Browser VM Now"
 4. The browser VM should open in a new window
-5. Use the browser demo at port 6080 if you want a known test endpoint
 
 ### Port Architecture
 
 - **Port 8000**: ButterVMS control panel (proxied via Nginx/Caddy to wafflev1.me)
-- **Port 6080**: Browser demo VM for quick testing
 - **Ports 32768+**: Auto-assigned for individual VM sessions
   - Each VM gets a web port (e.g., 32770) and VNC port (e.g., 32771)
   - Users click "Open Session Dashboard" to manage their session
