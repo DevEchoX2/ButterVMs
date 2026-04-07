@@ -6,6 +6,7 @@ docker compose up -d --build
 ```
 Open http://localhost:8000
 Browser demo: http://localhost:6080
+Admin panel: disabled by default (enable with `BUTTERVMS_ENABLE_ADMIN=1`)
 
 ## Production Deployment to wafflev1.me
 
@@ -102,8 +103,14 @@ Caddy handles HTTPS automatically with Let's Encrypt.
 - **Port 6080**: Browser demo VM for quick testing
 - **Ports 32768+**: Auto-assigned for individual VM sessions
   - Each VM gets a web port (e.g., 32770) and VNC port (e.g., 32771)
-  - User clicks "Open Browser VM Now" to access their session
+  - Users click "Open Session Dashboard" to manage their session
   - URLs are automatically generated with the server hostname
+
+### Admin panel
+
+For safety, `/admin` is disabled by default and returns 404.
+Enable it only when needed by setting `BUTTERVMS_ENABLE_ADMIN=1`.
+Then visit `/admin` to log in and stop individual VMs or kill all running sessions.
 
 ### Database & Persistence
 

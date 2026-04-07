@@ -28,6 +28,7 @@ services:
       BUTTERVMS_VNC_IMAGE: "jlesage/firefox:latest"
       BUTTERVMS_CONTAINER_PREFIX: "buttervms-session"
       BUTTERVMS_DEMO_BROWSER_URL: "http://127.0.0.1:6080"
+      BUTTERVMS_ENABLE_ADMIN: "0"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - buttervms_data:/data

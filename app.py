@@ -10,9 +10,10 @@ from uuid import uuid4
 
 import docker
 from docker.errors import DockerException, NotFound
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, session as flask_session, url_for
 
 app = Flask(__name__)
+app.secret_key = os.getenv("BUTTERVMS_SECRET_KEY", "buttervms-dev-secret")
 
 # Your BTC payout wallet address
 BTC_WALLET_ADDRESS = "bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0"
@@ -21,6 +22,8 @@ VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "jlesage/firefox:latest")
 DEMO_BROWSER_URL = os.getenv("BUTTERVMS_DEMO_BROWSER_URL", "http://127.0.0.1:6080")
 CONTAINER_PREFIX = os.getenv("BUTTERVMS_CONTAINER_PREFIX", "buttervms-session")
 SESSION_SWEEPER_SECONDS = int(os.getenv("BUTTERVMS_SWEEPER_SECONDS", "30"))
+ADMIN_PASSWORD = os.getenv("BUTTERVMS_ADMIN_PASSWORD", "change-me-now")
+ADMIN_ENABLED = os.getenv("BUTTERVMS_ENABLE_ADMIN", "0") == "1"
 _DOCKER_CLIENT = docker.DockerClient(base_url="unix://var/run/docker.sock")
 
 
@@ -183,6 +186,17 @@ def get_live_sessions() -> list[SessionRecord]:
     return [row_to_session(row) for row in rows]
 
 
+def get_all_sessions() -> list[SessionRecord]:
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM sessions
+            ORDER BY datetime(created_at) DESC
+            """
+        ).fetchall()
+    return [row_to_session(row) for row in rows]
+
+
 def stop_container(container_name: str) -> tuple[bool, str]:
     try:
         container = _DOCKER_CLIENT.containers.get(container_name)
@@ -285,6 +299,14 @@ def session_urls(record: SessionRecord, request_host: str) -> tuple[str, str]:
     return f"http://{host}:{record.web_port}", f"{host}:{record.vnc_port}"
 
 
+def is_admin_authenticated() -> bool:
+    return bool(flask_session.get("admin_authenticated"))
+
+
+def admin_is_reachable() -> bool:
+    return ADMIN_ENABLED
+
+
 def expire_sessions_loop() -> None:
     while True:
         now_text = utc_text(now_utc())
@@ -320,14 +342,13 @@ def home():
     live_sessions = get_live_sessions()[:10]
     sessions_payload: list[dict[str, str]] = []
     for item in live_sessions:
-        web_url, vnc_target = session_urls(item, request.host)
         sessions_payload.append(
             {
                 "vm_reference": item.vm_reference,
                 "tier": TIERS[item.tier_key].name,
-                "web_url": web_url,
-                "vnc_target": vnc_target,
+                "status": item.status,
                 "expires_at": display_utc(item.expires_at),
+                "session_link": url_for("session_details", session_id=item.session_id),
             }
         )
 
@@ -337,6 +358,8 @@ def home():
         btc_wallet=BTC_WALLET_ADDRESS,
         live_sessions=sessions_payload,
         demo_browser_url=DEMO_BROWSER_URL,
+        admin_enabled=admin_is_reachable(),
+        admin_link=url_for("admin_home"),
     )
 
 
@@ -421,6 +444,7 @@ def create_vm():
         expires_at=expires_at,
         session_id=session_id,
         payment_reference=payment_reference,
+        session_link=url_for("session_details", session_id=session_id) if session_id else "",
     )
 
 
@@ -485,6 +509,85 @@ def api_session(session_id: str):
             "remaining_seconds": remaining_seconds,
         }
     )
+
+
+@app.get("/admin")
+def admin_home():
+    if not admin_is_reachable():
+        return "Not Found", 404
+
+    if not is_admin_authenticated():
+        return render_template("admin_login.html")
+
+    sessions = get_all_sessions()
+    admin_rows: list[dict[str, str]] = []
+    for record in sessions:
+        web_url, vnc_target = session_urls(record, request.host)
+        admin_rows.append(
+            {
+                "session_id": record.session_id,
+                "vm_reference": record.vm_reference,
+                "tier": TIERS[record.tier_key].name,
+                "status": record.status,
+                "created_at": display_utc(record.created_at),
+                "expires_at": display_utc(record.expires_at),
+                "web_url": web_url,
+                "vnc_target": vnc_target,
+            }
+        )
+
+    return render_template("admin.html", sessions=admin_rows)
+
+
+@app.post("/admin/login")
+def admin_login():
+    if not admin_is_reachable():
+        return "Not Found", 404
+
+    password = request.form.get("password", "")
+    if password == ADMIN_PASSWORD:
+        flask_session["admin_authenticated"] = True
+        return redirect(url_for("admin_home"))
+    return render_template("admin_login.html", error="Invalid admin password.")
+
+
+@app.post("/admin/logout")
+def admin_logout():
+    if not admin_is_reachable():
+        return "Not Found", 404
+
+    flask_session.pop("admin_authenticated", None)
+    return redirect(url_for("admin_home"))
+
+
+@app.post("/admin/session/<session_id>/kill")
+def admin_kill_session(session_id: str):
+    if not admin_is_reachable():
+        return "Not Found", 404
+
+    if not is_admin_authenticated():
+        return redirect(url_for("admin_home"))
+
+    session_record = get_session(session_id)
+    if session_record and session_record.status == "running":
+        stop_container(session_record.container_name)
+        update_session_status(session_id, "stopped")
+    return redirect(url_for("admin_home"))
+
+
+@app.post("/admin/kill-all")
+def admin_kill_all():
+    if not admin_is_reachable():
+        return "Not Found", 404
+
+    if not is_admin_authenticated():
+        return redirect(url_for("admin_home"))
+
+    for session_record in get_live_sessions():
+        stop_container(session_record.container_name)
+        update_session_status(session_record.session_id, "stopped")
+
+    return redirect(url_for("admin_home"))
 
 
 boot_runtime()

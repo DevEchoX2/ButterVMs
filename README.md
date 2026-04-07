@@ -9,6 +9,8 @@ It includes:
 - Paid tier: 8-hour session limit
 - BTC payment reference workflow for premium sessions
 - Automatic session expiry and container cleanup
+- Optional admin panel for killing sessions (disabled by default)
+- Normal users do not see raw VM ports
 - Static product site for GitHub Pages in [docs/index.html](docs/index.html)
 
 ## Versions
@@ -32,11 +34,11 @@ docker compose up -d --build
 ```
 
 Open http://localhost:8000
+Browser demo: http://localhost:6080
 
 ## Session limits and monetization
 
 - Standard (Free): 45 minutes
-- Browser demo: http://localhost:6080
 - Premium (Paid): 8 hours
 
 Premium sessions require a BTC payment reference string in the UI (transaction ID or invoice ID).
@@ -64,6 +66,8 @@ Key runtime environment variables:
 - `BUTTERVMS_SWEEPER_SECONDS`: expiry cleanup loop interval
 - `BUTTERVMS_DEBUG`: set `1` for debug mode
 - `BUTTERVMS_DEMO_BROWSER_URL`: stable browser demo URL shown on the home page
+- `BUTTERVMS_ENABLE_ADMIN`: set `1` to enable `/admin` (default `0`)
+- `BUTTERVMS_ADMIN_PASSWORD`: password for the admin control panel
 
 See deployment wiring in [docker-compose.yml](docker-compose.yml).
 

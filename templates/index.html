@@ -30,6 +30,14 @@
         <code>{{ demo_browser_url }}</code>
       </section>
 
+      {% if admin_enabled %}
+      <section class="btc-note reveal">
+        <h3>Admin panel</h3>
+        <p>Use this to stop sessions and manage running VMs.</p>
+        <a class="vnc-link" href="{{ admin_link }}">Open Admin Panel</a>
+      </section>
+      {% endif %}
+
       <section class="tier-grid">
         {% for tier in tiers %}
         <article class="tier-card reveal {% if not tier.available %}locked{% endif %}">
@@ -78,8 +86,8 @@
           {% for item in live_sessions %}
           <li>
             {{ item.vm_reference }} ({{ item.tier }}) -
-            <a href="{{ item.web_url }}" target="_blank" rel="noopener noreferrer">Open Browser VM</a>
-            - Expires {{ item.expires_at }} - VNC {{ item.vnc_target }}
+            <a href="{{ item.session_link }}" rel="noopener noreferrer">Open Session</a>
+            - Status {{ item.status }} - Expires {{ item.expires_at }}
           </li>
           {% endfor %}
         </ul>
