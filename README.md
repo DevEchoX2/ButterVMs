@@ -23,27 +23,15 @@ It includes:
 
 ## Full stack deployment (server)
 
-### Option A: Docker Compose (recommended)
+See [DEPLOY.md](DEPLOY.md) for complete deployment instructions including local, Docker Compose, and production setups.
+
+### Quick Start
 
 ```bash
 docker compose up -d --build
 ```
 
-Open:
-- App: http://localhost:8000
-
-When users start sessions, ButterVMS launches browser VM containers and exposes random host ports:
-- Browser VM URL: `http://<your-server-host>:<mapped_web_port>`
-- Native VNC: `<your-server-host>:<mapped_vnc_port>`
-
-### Option B: Local Python run
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
+Open http://localhost:8000
 
 ## Session limits and monetization
 

@@ -14,8 +14,8 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 app = Flask(__name__)
 
-# Demo BTC address placeholder. Replace this with your real payout wallet.
-BTC_WALLET_ADDRESS = "bc1qbuttervmsxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Your BTC payout wallet address
+BTC_WALLET_ADDRESS = "bc1qzchqv8uyu0z9t3nzc3vt96kstv7z3xy032x0e0"
 DB_PATH = os.getenv("BUTTERVMS_DB_PATH", "buttervms.db")
 VNC_IMAGE = os.getenv("BUTTERVMS_VNC_IMAGE", "dorowu/ubuntu-desktop-lxde-vnc:latest")
 CONTAINER_PREFIX = os.getenv("BUTTERVMS_CONTAINER_PREFIX", "buttervms-session")
