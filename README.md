@@ -11,17 +11,6 @@ It includes:
 - Automatic session expiry and container cleanup
 - Optional admin panel for killing sessions (disabled by default)
 - Normal users do not see raw VM ports
-- Static product site for GitHub Pages in [docs/index.html](docs/index.html)
-
-## Versions
-
-1. Full stack version (runtime app):
-- UI + API + session orchestration
-- File: [app.py](app.py)
-
-2. Static version (marketing/docs):
-- Deployable on GitHub Pages
-- Files in [docs/index.html](docs/index.html)
 
 ## Full stack deployment (server)
 
@@ -45,17 +34,6 @@ Premium sessions require a BTC payment reference string in the UI (transaction I
 
 BTC wallet configured in [app.py](app.py):
 - `BTC_WALLET_ADDRESS`
-
-## GitHub Pages static deployment
-
-This repo includes GitHub Actions workflow for Pages:
-- Workflow: [.github/workflows/pages.yml](.github/workflows/pages.yml)
-- Static content root: [docs/index.html](docs/index.html)
-
-Enable once in GitHub repository settings:
-1. Go to `Settings -> Pages`
-2. Set `Build and deployment` source to `GitHub Actions`
-3. Push to `main` and the static site deploys automatically
 
 ## Environment configuration
 
