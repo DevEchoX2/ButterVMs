@@ -8,17 +8,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      BUTTERVMS_DEBUG: "0"
+      BUTTERVMS_SECRET_KEY: "replace-with-long-random-string"
       BUTTERVMS_DB_PATH: "/data/buttervms.db"
-      BUTTERVMS_VM_PROVIDER: "local"
-      BUTTERVMS_VNC_IMAGE: "dorowu/ubuntu-desktop-lxde-vnc:latest"
+      BUTTERVMS_DEBUG: "0"
+      BUTTERVMS_SWEEPER_SECONDS: "30"
+      BUTTERVMS_VNC_IMAGE: "jlesage/firefox:latest"
       BUTTERVMS_CONTAINER_PREFIX: "buttervms-session"
-      BUTTERVMS_EXTERNAL_API_BASE_URL: ""
-      BUTTERVMS_EXTERNAL_API_KEY: ""
-      BUTTERVMS_EXTERNAL_CREATE_PATH: "/v1/vms"
-      BUTTERVMS_EXTERNAL_DELETE_PATH: "/v1/vms/{external_id}"
-      BUTTERVMS_EXTERNAL_TIMEOUT_SECONDS: "30"
-      BUTTERVMS_ENABLE_ADMIN: "1"
+      BUTTERVMS_PUBLIC_VM_HOST: ""
+      BUTTERVMS_PUBLIC_VM_SCHEME: "http"
+      BUTTERVMS_PUBLIC_VM_HOST_TEMPLATE: ""
+      BUTTERVMS_STANDARD_MINUTES: "45"
+      BUTTERVMS_PREMIUM_MINUTES: "480"
+      BUTTERVMS_ADMIN_API_TOKEN: "replace-with-private-admin-token"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - buttervms_data:/data

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ButterVMS</title>
+    <style>
+      :root {
+        --bg: #fff5cf;
+        --panel: #ffffff;
+        --ink: #171717;
+        --accent: #f5b700;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 20% 10%, #ffe79a 0%, transparent 32%),
+          linear-gradient(145deg, #fff2bb 0%, #ffd66b 70%, #ffc23d 100%);
+        min-height: 100vh;
+      }
+      main {
+        max-width: 960px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      .card {
+        background: var(--panel);
+        border: 2px solid #000;
+        border-radius: 16px;
+        box-shadow: 0 10px 0 #000;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+      }
+      h1 { margin-top: 0; }
+      code {
+        display: inline-block;
+        background: #f4f4f4;
+        border-radius: 6px;
+        padding: 0.15rem 0.4rem;
+      }
+      a.button {
+        display: inline-block;
+        margin-top: 0.8rem;
+        text-decoration: none;
+        color: #000;
+        border: 2px solid #000;
+        border-radius: 10px;
+        padding: 0.5rem 0.8rem;
+        background: var(--accent);
+        font-weight: 700;
+      }
+      ul { margin: 0.4rem 0 0.2rem 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>ButterVMS</h1>
+        <p>This GitHub Pages site is a public project overview.</p>
+        <p>The actual VM runtime is backend-based and must run on your host/VPS.</p>
+      </section>
+
+      <section class="card">
+        <h2>Run Backend</h2>
+        <ul>
+          <li>Clone the repo</li>
+          <li>Run <code>docker compose up -d --build</code></li>
+          <li>Open <code>http://localhost:8000</code></li>
+        </ul>
+        <a class="button" href="https://github.com/DevEchoX2/ButterVMs">Open Repository</a>
+      </section>
+
+      <section class="card">
+        <h2>API-first backend</h2>
+        <p>Each session gets different mapped VM ports, and users receive isolated owner IDs.</p>
+      </section>
+    </main>
+  </body>
+</html>

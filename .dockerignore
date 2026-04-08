@@ -1,6 +1,8 @@
-.git
 __pycache__/
 *.pyc
-.venv/
+*.pyo
+*.pyd
+*.db
 .env
-buttervms.db
+.git
+.gitignore
