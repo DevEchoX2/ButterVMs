@@ -360,7 +360,7 @@ def launch_vm(tier: Tier) -> tuple[bool, str, dict[str, int | str] | None]:
         "shm_size": "1g",
         "ports": {"5800/tcp": None, "5900/tcp": None},
         "environment": {
-            "VNC_PASSWORD": "buttervms",
+            "VNC_PASSWORD": CONFIG.vm_password,
             "KEEP_APP_RUNNING": "1",
             "DISPLAY_WIDTH": "1366",
             "DISPLAY_HEIGHT": "768",

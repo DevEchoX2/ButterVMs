@@ -3,108 +3,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ButterVMS</title>
+    <title>ButterVMS v2</title>
     <style>
-      :root {
-        --bg: #fff5cf;
-        --panel: #ffffff;
-        --ink: #171717;
-        --accent: #f5b700;
-      }
-            <title>ButterVMS v2</title>
-      body {
-              :root { --ink: #182026; --muted: #657078; --paper: #f8f6f0; --line: #d8d5cd; --yellow: #f4c84a; --blue: #1d5d75; --red: #a63232; }
-              * { box-sizing: border-box; }
-              body { margin: 0; color: var(--ink); background: linear-gradient(135deg, #e8efe9, var(--paper) 48%, #f2dca3); font-family: Georgia, "Times New Roman", serif; min-height: 100vh; padding-bottom: 64px; }
-              main { max-width: 1120px; margin: 0 auto; padding: 28px 18px 40px; }
-              .layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 22px; align-items: start; }
-              .panel { background: rgba(255,255,255,.86); border: 1px solid var(--line); padding: 22px; box-shadow: 5px 5px 0 rgba(24,32,38,.1); }
-              h1, h2 { margin: 0 0 10px; letter-spacing: 0; } h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: .95; } h2 { font-size: 1.35rem; }
-              p { line-height: 1.5; } .eyebrow { color: var(--blue); font: 700 .75rem/1.2 sans-serif; letter-spacing: .12em; text-transform: uppercase; }
-              label { display: block; font: 700 .8rem sans-serif; margin: 16px 0 6px; } input, select { width: 100%; border: 1px solid #aeb5b1; background: #fff; padding: 11px 12px; font: 1rem Georgia, serif; }
-              button, .button { border: 1px solid var(--ink); background: var(--yellow); color: var(--ink); cursor: pointer; display: inline-block; font: 700 .9rem sans-serif; padding: 11px 14px; text-decoration: none; } button:hover, .button:hover { background: #e7b62c; }
-              .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; } .secondary { background: #fff; } .danger { color: var(--red); border-color: var(--red); }
-              .status { border-left: 4px solid var(--blue); background: #edf4f2; margin-top: 18px; padding: 12px; font: .9rem/1.4 sans-serif; white-space: pre-wrap; } .status.error { border-color: var(--red); background: #faeeee; }
-              .sidebar h2 { font-size: 1.1rem; } .reference { border-top: 1px solid var(--line); margin-top: 13px; padding-top: 13px; font: .82rem/1.4 sans-serif; } .reference strong { display: block; font-family: Georgia, serif; font-size: 1rem; }
-              .code { background: #182026; color: #fff; display: inline-block; font: 700 1.3rem monospace; letter-spacing: .18em; margin: 7px 0; padding: 8px 10px; }
-              .timer { background: var(--ink); bottom: 0; color: #fff; left: 0; padding: 12px 18px; position: fixed; right: 0; text-align: center; z-index: 2; font: .9rem sans-serif; } .timer strong { color: var(--yellow); font-size: 1.1rem; margin-left: 8px; }
-              .hidden { display: none; } .small { color: var(--muted); font: .8rem/1.4 sans-serif; }
-              @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } main { padding-top: 20px; } .sidebar { order: 2; } }
-      }
-      main {
-        max-width: 960px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-      }
-      .card {
-        background: var(--panel);
-        border: 2px solid #000;
-        border-radius: 16px;
-        box-shadow: 0 10px 0 #000;
-        padding: 1.2rem;
-        margin-bottom: 1rem;
-      }
-      h1 { margin-top: 0; }
-      code {
-        display: inline-block;
-        background: #f4f4f4;
-        border-radius: 6px;
-        padding: 0.15rem 0.4rem;
-      }
-      a.button {
-        display: inline-block;
-        margin-top: 0.8rem;
-        text-decoration: none;
-        color: #000;
-        border: 2px solid #000;
-        border-radius: 10px;
-        padding: 0.5rem 0.8rem;
-        background: var(--accent);
-            <div class="timer">Time remaining <strong id="countdown">--:--:--</strong></div>
-            <script>
-              const $ = (id) => document.getElementById(id);
-              let current = null;
-              const refs = JSON.parse(localStorage.getItem("buttervms-references") || "[]");
-              const api = () => $("apiBase").value.replace(/\/$/, "");
-              const show = (message, error = false) => { $("status").textContent = message; $("status").className = `status${error ? " error" : ""}`; };
-              const save = () => { localStorage.setItem("buttervms-references", JSON.stringify(refs)); renderRefs(); };
-              const renderRefs = () => { $("references").innerHTML = refs.length ? refs.map((ref, index) => `<div class="reference"><strong>${ref.sessionId.slice(0, 12)}</strong><span>Owner: ${ref.ownerId.slice(0, 10)}...</span>${ref.code ? `<br><span class="code">${ref.code}</span> <button class="secondary" data-copy="${index}">Copy</button>` : "<br><span>Code not issued</span>"}<br><button class="secondary" data-load="${index}">Load session</button></div>`).join("") : '<p class="small">No sessions saved yet.</p>'; };
-              const setCurrent = (session) => { current = session; $("active").className = ""; $("active").innerHTML = `<p><b>Session active.</b> <a class="button" href="${session.vm_url}" target="_blank" rel="noopener">Open VM</a></p><p class="small">Session ID: ${session.session_id}<br>Owner ID: ${session.owner_id || "saved in this browser"}</p>`; $("passwordForm").className = ""; $("resumeSession").value = session.session_id; $("resumeOwner").value = session.owner_id || ""; };
-              const request = async (path, options) => { const response = await fetch(`${api()}${path}`, { headers: { "Content-Type": "application/json" }, ...options }); const body = await response.json(); if (!response.ok) throw new Error(body.message || body.error || "Request failed"); return body; };
-              $("launch").onclick = async () => { try { show("Starting VM and waiting for its desktop service..."); const body = await request("/api/sessions", { method: "POST", body: JSON.stringify({ tier: $("tier").value }) }); setCurrent(body.session); refs.unshift({ sessionId: body.session.session_id, ownerId: body.session.owner_id, code: "" }); save(); show("VM ready. Open it above, then enter the VM password to create your one-time resume code."); } catch (error) { show(error.message, true); } };
-              $("issueCode").onclick = async () => { if (!current) return; try { const body = await request(`/api/sessions/${current.session_id}/resume-code`, { method: "POST", body: JSON.stringify({ owner_id: current.owner_id, password: $("vmPassword").value }) }); const ref = refs.find((item) => item.sessionId === current.session_id); ref.code = body.resume_code; save(); await navigator.clipboard?.writeText(body.resume_code); show(`Resume code ${body.resume_code} created and copied. It can restore this desktop once after expiry.`); } catch (error) { show(error.message, true); } };
-              $("resumeToggle").onclick = () => { $("resumeForm").classList.toggle("hidden"); };
-              $("resume").onclick = async () => { try { show("Restoring your retained desktop..."); const body = await request(`/api/sessions/${$("resumeSession").value.trim()}/resume`, { method: "POST", body: JSON.stringify({ owner_id: $("resumeOwner").value.trim(), resume_code: $("resumeCode").value.trim() }) }); setCurrent(body.session); show("Desktop restored. Your one-time code has been consumed."); } catch (error) { show(error.message, true); } };
-              $("references").onclick = async (event) => { const copy = event.target.dataset.copy; const load = event.target.dataset.load; if (copy !== undefined) { await navigator.clipboard?.writeText(refs[copy].code); show("Resume code copied."); } if (load !== undefined) { $("resumeForm").className = ""; $("resumeSession").value = refs[load].sessionId; $("resumeOwner").value = refs[load].ownerId; $("resumeCode").value = refs[load].code; } };
-              setInterval(() => { const remaining = current ? Math.max(0, new Date(current.expires_at.replace(" ", "T") + "Z") - Date.now()) : 0; const seconds = Math.floor(remaining / 1000); $("countdown").textContent = current ? `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}` : "--:--:--"; }, 1000);
-              renderRefs();
-            </script>
-      }
-      ul { margin: 0.4rem 0 0.2rem 1.2rem; }
+      :root { --ink:#182026; --muted:#657078; --paper:#f8f6f0; --line:#d8d5cd; --yellow:#f4c84a; --blue:#1d5d75; --red:#a63232; }
+      * { box-sizing:border-box; }
+      body { margin:0; color:var(--ink); background:linear-gradient(135deg,#e8efe9,var(--paper) 48%,#f2dca3); font-family:Georgia,"Times New Roman",serif; min-height:100vh; padding-bottom:64px; }
+      main { max-width:1120px; margin:0 auto; padding:28px 18px 40px; }
+      .layout { display:grid; grid-template-columns:minmax(0,1fr) 285px; gap:22px; align-items:start; }
+      .panel { background:rgba(255,255,255,.86); border:1px solid var(--line); padding:22px; box-shadow:5px 5px 0 rgba(24,32,38,.1); }
+      h1,h2 { margin:0 0 10px; } h1 { font-size:clamp(2rem,5vw,4rem); line-height:.95; } h2 { font-size:1.35rem; }
+      p { line-height:1.5; } .eyebrow { color:var(--blue); font:700 .75rem/1.2 sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+      label { display:block; font:700 .8rem sans-serif; margin:16px 0 6px; } input,select { width:100%; border:1px solid #aeb5b1; background:#fff; padding:11px 12px; font:1rem Georgia,serif; }
+      button,.button { border:1px solid var(--ink); background:var(--yellow); color:var(--ink); cursor:pointer; display:inline-block; font:700 .9rem sans-serif; padding:11px 14px; text-decoration:none; } button:hover,.button:hover { background:#e7b62c; }
+      .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; } .secondary { background:#fff; }
+      .status { border-left:4px solid var(--blue); background:#edf4f2; margin-top:18px; padding:12px; font:.9rem/1.4 sans-serif; white-space:pre-wrap; } .status.error { border-color:var(--red); background:#faeeee; }
+      .reference { border-top:1px solid var(--line); margin-top:13px; padding-top:13px; font:.82rem/1.4 sans-serif; } .reference strong { display:block; font-family:Georgia,serif; font-size:1rem; }
+      .code { background:var(--ink); color:#fff; display:inline-block; font:700 1.3rem monospace; letter-spacing:.18em; margin:7px 0; padding:8px 10px; }
+      .timer { background:var(--ink); bottom:0; color:#fff; left:0; padding:12px 18px; position:fixed; right:0; text-align:center; z-index:2; font:.9rem sans-serif; } .timer strong { color:var(--yellow); font-size:1.1rem; margin-left:8px; }
+      .hidden { display:none; } .small { color:var(--muted); font:.8rem/1.4 sans-serif; }
+      @media (max-width:760px) { .layout { grid-template-columns:1fr; } .sidebar { order:2; } }
     </style>
   </head>
   <body>
     <main>
-      <section class="card">
-        <h1>ButterVMS</h1>
-        <p>This GitHub Pages site is a public project overview.</p>
-        <p>The actual VM runtime is backend-based and must run on your host/VPS.</p>
-      </section>
-
-      <section class="card">
-        <h2>Run Backend</h2>
-        <ul>
-          <li>Clone the repo</li>
-          <li>Run <code>docker compose up -d --build</code></li>
-          <li>Open <code>http://localhost:8000</code></li>
-        </ul>
-        <a class="button" href="https://github.com/DevEchoX2/ButterVMs">Open Repository</a>
-      </section>
-
-      <section class="card">
-        <h2>API-first backend</h2>
-        <p>Each session gets different mapped VM ports, and users receive isolated owner IDs.</p>
-      </section>
+      <p class="eyebrow">ButterVMS / version 2</p>
+      <div class="layout">
+        <section class="panel">
+          <h1>Open a workspace.</h1>
+          <p>Launch a private browser VM, keep your reference code nearby, and return to the same desktop once your session expires.</p>
+          <label for="apiBase">Backend URL</label><input id="apiBase" value="http://localhost:8000" autocomplete="url" />
+          <label for="tier">Session tier</label><select id="tier"><option value="standard">Standard / 2 hours</option><option value="premium">Premium / 8 hours</option></select>
+          <div class="actions"><button id="launch">Launch VM</button><button class="secondary" id="resumeToggle">Resume with code</button></div>
+          <div id="resumeForm" class="hidden"><label for="resumeSession">Session ID</label><input id="resumeSession" autocomplete="off" /><label for="resumeOwner">Owner ID</label><input id="resumeOwner" autocomplete="off" /><label for="resumeCode">Six-digit resume code</label><input id="resumeCode" inputmode="numeric" maxlength="6" autocomplete="off" /><div class="actions"><button id="resume">Restore desktop</button></div></div>
+          <div id="passwordForm" class="hidden"><label for="vmPassword">VM password</label><input id="vmPassword" type="password" autocomplete="current-password" /><div class="actions"><button id="issueCode">Create resume code</button></div></div>
+          <div id="status" class="status">Ready. Start a session to connect.</div><div id="active" class="hidden"></div>
+        </section>
+        <aside class="panel sidebar"><h2>Saved references</h2><p class="small">Codes are stored only in this browser. Keep this page private.</p><div id="references"><p class="small">No sessions saved yet.</p></div></aside>
+      </div>
     </main>
+    <div class="timer">Time remaining <strong id="countdown">--:--:--</strong></div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let current = null;
+      const refs = JSON.parse(localStorage.getItem("buttervms-references") || "[]");
+      const api = () => $("apiBase").value.replace(/\/$/, "");
+      const show = (message, error = false) => { $("status").textContent = message; $("status").className = `status${error ? " error" : ""}`; };
+      const save = () => { localStorage.setItem("buttervms-references", JSON.stringify(refs)); renderRefs(); };
+      const renderRefs = () => { $("references").innerHTML = refs.length ? refs.map((ref, index) => `<div class="reference"><strong>${ref.sessionId.slice(0, 12)}</strong><span>Owner: ${ref.ownerId.slice(0, 10)}...</span>${ref.code ? `<br><span class="code">${ref.code}</span> <button class="secondary" data-copy="${index}">Copy</button>` : "<br><span>Code not issued</span>"}<br><button class="secondary" data-load="${index}">Load session</button></div>`).join("") : '<p class="small">No sessions saved yet.</p>'; };
+      const setCurrent = (session) => { current = session; $("active").className = ""; $("active").innerHTML = `<p><b>Session active.</b> <a class="button" href="${session.vm_url}" target="_blank" rel="noopener">Open VM</a></p><p class="small">Session ID: ${session.session_id}<br>Owner ID: ${session.owner_id || "saved in this browser"}</p>`; $("passwordForm").className = ""; $("resumeSession").value = session.session_id; $("resumeOwner").value = session.owner_id || ""; };
+      const request = async (path, options) => { const response = await fetch(`${api()}${path}`, { headers: { "Content-Type": "application/json" }, ...options }); const body = await response.json(); if (!response.ok) throw new Error(body.message || body.error || "Request failed"); return body; };
+      $("launch").onclick = async () => { try { show("Starting VM and waiting for its desktop service..."); const body = await request("/api/sessions", { method: "POST", body: JSON.stringify({ tier: $("tier").value }) }); setCurrent(body.session); refs.unshift({ sessionId: body.session.session_id, ownerId: body.session.owner_id, code: "" }); save(); show("VM ready. Open it above, then enter the VM password to create your one-time resume code."); } catch (error) { show(error.message, true); } };
+      $("issueCode").onclick = async () => { if (!current) return; try { const body = await request(`/api/sessions/${current.session_id}/resume-code`, { method: "POST", body: JSON.stringify({ owner_id: current.owner_id, password: $("vmPassword").value }) }); const ref = refs.find((item) => item.sessionId === current.session_id); ref.code = body.resume_code; save(); await navigator.clipboard?.writeText(body.resume_code); show(`Resume code ${body.resume_code} created and copied. It can restore this desktop once after expiry.`); } catch (error) { show(error.message, true); } };
+      $("resumeToggle").onclick = () => { $("resumeForm").classList.toggle("hidden"); };
+      $("resume").onclick = async () => { try { show("Restoring your retained desktop..."); const body = await request(`/api/sessions/${$("resumeSession").value.trim()}/resume`, { method: "POST", body: JSON.stringify({ owner_id: $("resumeOwner").value.trim(), resume_code: $("resumeCode").value.trim() }) }); setCurrent(body.session); show("Desktop restored. Your one-time code has been consumed."); } catch (error) { show(error.message, true); } };
+      $("references").onclick = async (event) => { const copy = event.target.dataset.copy; const load = event.target.dataset.load; if (copy !== undefined) { await navigator.clipboard?.writeText(refs[copy].code); show("Resume code copied."); } if (load !== undefined) { $("resumeForm").className = ""; $("resumeSession").value = refs[load].sessionId; $("resumeOwner").value = refs[load].ownerId; $("resumeCode").value = refs[load].code; } };
+      setInterval(() => { const remaining = current ? Math.max(0, new Date(current.expires_at.replace(" ", "T") + "Z") - Date.now()) : 0; const seconds = Math.floor(remaining / 1000); $("countdown").textContent = current ? `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}` : "--:--:--"; }, 1000);
+      renderRefs();
+    </script>
   </body>
 </html>
