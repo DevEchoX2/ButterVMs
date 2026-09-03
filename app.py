@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
 import os
+import secrets
 import sqlite3
 import threading
 import time
@@ -15,6 +18,7 @@ from flask import Flask, jsonify, request
 
 @dataclass(frozen=True)
 class Config:
+    version: str
     secret_key: str
     db_path: str
     debug: bool
@@ -26,11 +30,15 @@ class Config:
     public_vm_host_template: str
     standard_minutes: int
     premium_minutes: int
+    vm_ready_timeout_seconds: int
+    vm_password: str
+    cors_origin: str
     admin_api_token: str
 
 
 def load_config() -> Config:
     return Config(
+        version=os.getenv("BUTTERVMS_VERSION", "2.0.0"),
         secret_key=os.getenv("BUTTERVMS_SECRET_KEY", "dev-secret-change-me"),
         db_path=os.getenv("BUTTERVMS_DB_PATH", "buttervms.db"),
         debug=os.getenv("BUTTERVMS_DEBUG", "0") == "1",
@@ -40,8 +48,11 @@ def load_config() -> Config:
         public_vm_host=os.getenv("BUTTERVMS_PUBLIC_VM_HOST", "").strip(),
         public_vm_scheme=os.getenv("BUTTERVMS_PUBLIC_VM_SCHEME", "http").strip().lower(),
         public_vm_host_template=os.getenv("BUTTERVMS_PUBLIC_VM_HOST_TEMPLATE", "").strip(),
-        standard_minutes=int(os.getenv("BUTTERVMS_STANDARD_MINUTES", "45")),
+        standard_minutes=int(os.getenv("BUTTERVMS_STANDARD_MINUTES", "120")),
         premium_minutes=int(os.getenv("BUTTERVMS_PREMIUM_MINUTES", "480")),
+        vm_ready_timeout_seconds=int(os.getenv("BUTTERVMS_VM_READY_TIMEOUT_SECONDS", "45")),
+        vm_password=os.getenv("BUTTERVMS_VM_PASSWORD", "Celsius001"),
+        cors_origin=os.getenv("BUTTERVMS_CORS_ORIGIN", "*"),
         admin_api_token=os.getenv("BUTTERVMS_ADMIN_API_TOKEN", "").strip(),
     )
 
@@ -51,6 +62,14 @@ DOCKER_CLIENT = docker.DockerClient(base_url="unix://var/run/docker.sock")
 
 app = Flask(__name__)
 app.secret_key = CONFIG.secret_key
+
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = CONFIG.cors_origin
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Admin-Token"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    return response
 
 
 @dataclass(frozen=True)
@@ -82,8 +101,9 @@ def host_only(value: str) -> str:
 
 
 def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(CONFIG.db_path)
+    conn = sqlite3.connect(CONFIG.db_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 
@@ -101,10 +121,14 @@ def init_db() -> None:
                 web_port INTEGER NOT NULL,
                 vnc_port INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
+                expires_at TEXT NOT NULL,
+                resume_code_hash TEXT,
+                resume_used INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(status, expires_at)")
 
         columns = {
             row["name"]
@@ -122,6 +146,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE sessions ADD COLUMN web_port INTEGER DEFAULT 0")
         if "vnc_port" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN vnc_port INTEGER DEFAULT 0")
+        if "resume_code_hash" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN resume_code_hash TEXT")
+        if "resume_used" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN resume_used INTEGER NOT NULL DEFAULT 0")
 
 
 def mapped_port(container_name: str, internal_port: str) -> tuple[bool, int | None, str]:
@@ -160,6 +188,49 @@ def stop_container(container_name: str) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def retain_stopped_container(container_name: str) -> tuple[bool, str]:
+    if not container_name:
+        return True, "No container bound."
+
+    try:
+        container = DOCKER_CLIENT.containers.get(container_name)
+        container.stop(timeout=10)
+        return True, "Container stopped and retained for resume."
+    except NotFound:
+        return False, "Container no longer exists."
+    except DockerException as exc:
+        return False, str(exc)
+
+
+def wait_for_vm(container_name: str) -> tuple[bool, str]:
+    deadline = time.monotonic() + CONFIG.vm_ready_timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            container = DOCKER_CLIENT.containers.get(container_name)
+            container.reload()
+            state = container.attrs.get("State", {})
+            if state.get("Status") != "running":
+                return False, f"VM container stopped during startup ({state.get('Status', 'unknown')})."
+            health = state.get("Health", {}).get("Status")
+            if health == "healthy":
+                return True, ""
+            if health == "unhealthy":
+                return False, "VM web service failed its health check."
+        except DockerException as exc:
+            return False, str(exc)
+        time.sleep(1)
+
+    return False, "VM web service did not become ready in time."
+
+
+def code_hash(code: str) -> str:
+    return hashlib.sha256(f"{CONFIG.secret_key}:{code}".encode()).hexdigest()
+
+
+def resume_code_available(row: sqlite3.Row) -> bool:
+    return bool(row["resume_code_hash"]) and not bool(row["resume_used"])
+
+
 def build_vm_url(request_host: str, web_port: int) -> str:
     if CONFIG.public_vm_host_template:
         host = CONFIG.public_vm_host_template.format(port=web_port)
@@ -187,8 +258,8 @@ def create_session_record(
         conn.execute(
             """
             INSERT INTO sessions (
-                session_id, vm_reference, tier_key, owner_id, status, container_name, web_port, vnc_port, created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                session_id, vm_reference, tier_key, owner_id, status, container_name, web_port, vnc_port, created_at, expires_at, resume_code_hash, resume_used
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
             """,
             (
                 session_id,
@@ -220,6 +291,54 @@ def delete_session(session_id: str) -> None:
         conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
 
 
+def save_resume_code(session_id: str, resume_hash: str) -> bool:
+    with get_db() as conn:
+        result = conn.execute(
+            "UPDATE sessions SET resume_code_hash = ? WHERE session_id = ? AND resume_code_hash IS NULL",
+            (resume_hash, session_id),
+        )
+        return result.rowcount == 1
+
+
+def claim_resume(session_id: str, owner_id: str, resume_hash: str) -> sqlite3.Row | None:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM sessions
+            WHERE session_id = ? AND owner_id = ? AND status = 'expired'
+              AND resume_code_hash = ? AND resume_used = 0
+            """,
+            (session_id, owner_id, resume_hash),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute(
+            "UPDATE sessions SET resume_used = 1 WHERE session_id = ? AND resume_used = 0",
+            (session_id,),
+        )
+        return row
+
+
+def restore_vm(row: sqlite3.Row) -> tuple[bool, str]:
+    try:
+        container = DOCKER_CLIENT.containers.get(row["container_name"])
+        container.start()
+    except NotFound:
+        return False, "The retained VM container no longer exists."
+    except DockerException as exc:
+        return False, str(exc)
+
+    return wait_for_vm(row["container_name"])
+
+
+def mark_restored(session_id: str, expires_at: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE sessions SET status = 'running', expires_at = ? WHERE session_id = ?",
+            (expires_at, session_id),
+        )
+
+
 def admin_allowed() -> bool:
     token = request.headers.get("X-Admin-Token", "").strip()
     return bool(CONFIG.admin_api_token) and token == CONFIG.admin_api_token
@@ -247,6 +366,13 @@ def launch_vm(tier: Tier) -> tuple[bool, str, dict[str, int | str] | None]:
             "DISPLAY_HEIGHT": "768",
         },
         "auto_remove": False,
+        "healthcheck": {
+            "test": ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5800/ || exit 1"],
+            "interval": 5_000_000_000,
+            "timeout": 3_000_000_000,
+            "retries": 12,
+            "start_period": 10_000_000_000,
+        },
     }
 
     try:
@@ -268,6 +394,11 @@ def launch_vm(tier: Tier) -> tuple[bool, str, dict[str, int | str] | None]:
     if not web_ok or not vnc_ok or web_port is None or vnc_port is None:
         stop_container(container_name)
         return False, f"VM launched but port mapping failed: {web_message or vnc_message}", None
+
+    ready, ready_message = wait_for_vm(container_name)
+    if not ready:
+        stop_container(container_name)
+        return False, ready_message, None
 
     expires = now_utc() + timedelta(minutes=tier.minutes)
     create_session_record(
@@ -305,7 +436,7 @@ def sweeper_loop() -> None:
             ).fetchall()
 
         for row in rows:
-            stop_container(row["container_name"])
+            retain_stopped_container(row["container_name"])
             set_session_status(row["session_id"], "expired")
 
         time.sleep(CONFIG.sweeper_seconds)
@@ -320,6 +451,7 @@ def start_sweeper() -> None:
 def root():
     return jsonify(
         {
+            "version": CONFIG.version,
             "name": "ButterVMS Backend",
             "status": "ok",
             "mode": "backend-first",
@@ -327,6 +459,8 @@ def root():
                 "GET /health",
                 "POST /api/sessions",
                 "GET /api/sessions/<session_id>?owner_id=...",
+                "POST /api/sessions/<session_id>/resume-code",
+                "POST /api/sessions/<session_id>/resume",
                 "POST /api/sessions/<session_id>/stop",
                 "DELETE /api/sessions/<session_id>",
                 "GET /api/admin/sessions",
@@ -392,9 +526,74 @@ def fetch_session(session_id: str):
             "status": row["status"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"],
+            "resume_available": resume_code_available(row),
             "vm_url": build_vm_url(request.host, row["web_port"]),
             "web_port": row["web_port"],
             "vnc_port": row["vnc_port"],
+        }
+    )
+
+
+@app.post("/api/sessions/<session_id>/resume-code")
+def issue_resume_code(session_id: str):
+    payload = request.get_json(silent=True) or {}
+    owner_id = str(payload.get("owner_id", "")).strip()
+    password = str(payload.get("password", ""))
+    if not owner_id or not password:
+        return jsonify({"error": "owner_id_and_password_required"}), 400
+
+    row = get_session(session_id)
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    if not session_access_allowed(row, owner_id):
+        return jsonify({"error": "forbidden"}), 403
+    if not hmac.compare_digest(password, CONFIG.vm_password):
+        return jsonify({"error": "invalid_password"}), 401
+    if row["resume_used"]:
+        return jsonify({"error": "resume_already_used"}), 409
+    if row["resume_code_hash"]:
+        return jsonify({"error": "resume_code_already_issued"}), 409
+
+    resume_code = f"{secrets.randbelow(1_000_000):06d}"
+    if not save_resume_code(session_id, code_hash(resume_code)):
+        return jsonify({"error": "resume_code_already_issued"}), 409
+    return jsonify({"ok": True, "resume_code": resume_code})
+
+
+@app.post("/api/sessions/<session_id>/resume")
+def resume_session(session_id: str):
+    payload = request.get_json(silent=True) or {}
+    owner_id = str(payload.get("owner_id", "")).strip()
+    resume_code = str(payload.get("resume_code", "")).strip()
+    if not owner_id or not resume_code:
+        return jsonify({"error": "owner_id_and_resume_code_required"}), 400
+    if not resume_code.isdigit() or len(resume_code) != 6:
+        return jsonify({"error": "invalid_resume_code"}), 400
+
+    row = claim_resume(session_id, owner_id, code_hash(resume_code))
+    if not row:
+        return jsonify({"error": "invalid_or_used_resume_code"}), 401
+
+    ok, message = restore_vm(row)
+    if not ok:
+        return jsonify({"error": "resume_failed", "message": message}), 500
+
+    expires = now_utc() + timedelta(minutes=TIERS[row["tier_key"]].minutes)
+    mark_restored(session_id, utc_text(expires))
+    return jsonify(
+        {
+            "ok": True,
+            "message": "VM resumed.",
+            "session": {
+                "session_id": row["session_id"],
+                "vm_reference": row["vm_reference"],
+                "tier": row["tier_key"],
+                "minutes": TIERS[row["tier_key"]].minutes,
+                "expires_at": utc_text(expires),
+                "vm_url": build_vm_url(request.host, row["web_port"]),
+                "web_port": row["web_port"],
+                "vnc_port": row["vnc_port"],
+            },
         }
     )
 
