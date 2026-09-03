@@ -35,7 +35,7 @@
           <label for="tier">Session tier</label><select id="tier"><option value="standard">Standard / 2 hours</option><option value="premium">Premium / 8 hours</option></select>
           <div class="actions"><button id="launch">Launch VM</button><button class="secondary" id="resumeToggle">Resume with code</button></div>
           <div id="resumeForm" class="hidden"><label for="resumeSession">Session ID</label><input id="resumeSession" autocomplete="off" /><label for="resumeOwner">Owner ID</label><input id="resumeOwner" autocomplete="off" /><label for="resumeCode">Six-digit resume code</label><input id="resumeCode" inputmode="numeric" maxlength="6" autocomplete="off" /><div class="actions"><button id="resume">Restore desktop</button></div></div>
-          <div id="passwordForm" class="hidden"><label for="vmPassword">VM password</label><input id="vmPassword" type="password" autocomplete="current-password" /><div class="actions"><button id="issueCode">Create resume code</button></div></div>
+          <div id="passwordForm" class="hidden"><label for="vmPassword">VM password</label><input id="vmPassword" type="password" autocomplete="current-password" /><p class="small">Enter the VM password, then your six-digit resume code will appear in Saved references.</p><div class="actions"><button id="issueCode">Verify password + show code</button></div></div>
           <div id="status" class="status">Ready. Start a session to connect.</div><div id="active" class="hidden"></div>
         </section>
         <aside class="panel sidebar"><h2>Saved references</h2><p class="small">Codes are stored only in this browser. Keep this page private.</p><div id="references"><p class="small">No sessions saved yet.</p></div></aside>

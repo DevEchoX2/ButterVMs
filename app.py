@@ -419,6 +419,7 @@ def launch_vm(tier: Tier) -> tuple[bool, str, dict[str, int | str] | None]:
         "container_name": container_name,
         "web_port": web_port,
         "vnc_port": vnc_port,
+        "expires_at": utc_text(expires),
     }
 
 
@@ -500,6 +501,7 @@ def create_session():
                 "vm_url": vm_url,
                 "web_port": data["web_port"],
                 "vnc_port": data["vnc_port"],
+                "expires_at": data["expires_at"],
             },
         }
     )
